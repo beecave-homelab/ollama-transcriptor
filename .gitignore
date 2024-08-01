@@ -1,0 +1,19 @@
+# Ignore everything by default
+*
+
+# Whitelist specific files and directories
+!*.gitignore
+!*.py
+!*.html
+!Dockerfile
+!*yml
+!*.yaml
+!*.env.example
+!README.md
+!LICENSE
+!/modules/
+!/modules/findMarkdown.py
+!/modules/messageColor.py
+!/system-message/
+!/system-message/clean_transcript
+!/system-message/clean_transcript/system.md
