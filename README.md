@@ -4,24 +4,20 @@ Send chunks of 1000 words from a audio-to-text transcript to Ollama
 
 ## Project structure
 ```md
-/Users/elvee/Nextcloud/Projects/ollama-transcriptor
-├── __init__.py
+/Projects/ollama-transcriptor
+├── app.py
+├── cleaned-transcripts
 ├── diagnostics.py
 ├── LICENSE
-├── logs
-│  └── code_extraction.log
 ├── modules
 │  ├── __init__.py
 │  ├── findMarkdown.py
 │  └── messageColor.py
-├── ollama-transcriptor.py
 ├── README.md
 ├── system-message
-│  ├── __init__.py
 │  └── clean_transcript
-├── transcripts
-│  └── __init__.py
-└── venv
+└── transcripts
+   └── 2024-07-29-Transcript - Introducing Substrate—An Open-source Framework for Human Understanding, Meaning, and Progress.md
 ```
 
 # TO DO
