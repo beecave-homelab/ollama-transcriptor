@@ -26,7 +26,7 @@ Send chunks of 1000 words from a audio-to-text transcript to Ollama
 - [X] Add support to call the `findMarkdown.py` script from the `./modules` folder and send every segment of the transcript as a message to the model. Append the response to the message to `./response` folder with the name of the input file used in `./find-markdown/transcripts` folder.
 - [ ] Add support to call the `messageColor.py` script from the `./modules` folder and send every segment of the transcript as a message to the model. Append the response to every status message send to the console.
 - [ ] Add support to set variables in a `.env`:
-    - [ ] Add support for choosing the OLLAMA_API_SERVER variable with the default value of `http://localhost:11434/v1`. This is only usefull when also creating a webui or a script with [typer](https://github.com/tiangolo/typer). 
+    - [ ] Add support for choosing the OLLAMA_API_SERVER variable with the default value of `http://localhost:11434/v1`. 
     - [ ] Add support for choosing model by calling the OLLAMA_MODEL_API variable with the default value of `http://localhost:11434/v1/models`. This is only usefull when also creating a webui or a script with [typer](https://github.com/tiangolo/typer). 
     - [ ] Add support for choosing the system message by calling the MODEL_SYSTEM_MESSAGE variable with the default value of `./system-message/clean_transcript/system.md`
     - [ ] Add support for choosing the transcripts folder by calling the TRANSCRIPTS_FOLDER variable with the default value of `./transcripts`
@@ -36,3 +36,9 @@ Send chunks of 1000 words from a audio-to-text transcript to Ollama
 - [ ] Add support for setting CLI arguments for all the variables used in the script (they should also be present in the `.env` file).
 - [ ] Add and `.env.example` file to the repository.
 
+IDEAS:
+- [ ] Recreate the script with [typer](https://github.com/tiangolo/typer). 
+- [ ] Recreate the script with [Click](https://click.palletsprojects.com/en/8.1.x/)
+- [ ] Create an API with [FastAPI](https://github.com/tiangolo/fastapi).
+- [ ] Create a web UI with [Gradio](https://github.com/gradio-app/gradio).
+- [ ] Create a web UI with [Taipy](https://github.com/Avaiga/taipy).
