@@ -105,7 +105,7 @@ def gradio_interface():
             cleaned_results = []
             for file in files:
                 file_name = os.path.basename(file.name)
-                file_content = file.getvalue().decode("utf-8")
+                file_content = file.value.decode("utf-8")
                 result, cleaned_segment = process_file(file_name, file_content)
                 results.append(result)
                 cleaned_results.append(cleaned_segment)
