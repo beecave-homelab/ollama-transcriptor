@@ -2,10 +2,10 @@ import gradio as gr
 import os
 import sys
 import logging
-import openai
 from typing import List
 from dotenv import load_dotenv
 from modules.transcriptProcessor import check_file_type, read_file_content, process_content, handle_stream
+from openai import OpenAI
 
 # Load environment variables
 load_dotenv()
@@ -22,8 +22,7 @@ TEMPERATURE = float(os.getenv("TEMPERATURE"))
 # Set up logging
 logging.basicConfig(filename='code_extraction.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-openai.api_key = API_KEY
-openai.api_base = OPENAI_BASE_URL
+openai_client = OpenAI(api_key=API_KEY, base_url=OPENAI_BASE_URL)
 
 def get_system_message(file_path: str) -> str:
     try:
@@ -42,7 +41,7 @@ def append_to_cleaned_transcript(file_name: str, content: str) -> None:
     with open(cleaned_file_path, 'a') as file:
         file.write(content + '\n')
 
-def process_file(file_name, content):
+def process_file(file_name, content, update_output, update_cleaned):
     segments = process_content(content)
     results = []
     cleaned_segments = []
@@ -54,7 +53,7 @@ def process_file(file_name, content):
             {"role": "system", "content": system_message_content},
             {"role": "user", "content": segment.strip()}
         ]
-        response = openai.ChatCompletion.create(
+        response = openai_client.chat.completions.create(
             model=API_MODEL,
             messages=messages,
             temperature=TEMPERATURE,
@@ -62,10 +61,17 @@ def process_file(file_name, content):
             stream=True
         )
         
-        cleaned_content = handle_stream(response)
+        cleaned_content = ""
+        for chunk in response:
+            if 'choices' in chunk and 'delta' in chunk['choices'][0]:
+                part = chunk['choices'][0]['delta']['content']
+                cleaned_content += part
+                update_cleaned(cleaned_content)
+        
         append_to_cleaned_transcript(file_name, cleaned_content)
         cleaned_segments.append(cleaned_content)
         results.append(cleaned_content)
+        update_output("\n".join(results))
     
     return "\n".join(results), "\n".join(cleaned_segments)
 
@@ -87,6 +93,12 @@ def gradio_interface():
                 output_text = gr.Textbox(label="Output", lines=20)
                 cleaned_text = gr.Textbox(label="Cleaned Segments", lines=20)
 
+        def display_file_content(file):
+            file_name = os.path.basename(file.name)
+            with open(file.name, "r", encoding="utf-8") as f:
+                file_content = f.read()
+            return file_content
+
         def process_transcripts(files):
             results = []
             cleaned_results = []
@@ -95,11 +107,14 @@ def gradio_interface():
                 with open(file.name, "r", encoding="utf-8") as f:
                     file_content = f.read()
                 if check_file_type(file_name):
-                    result, cleaned_segment = process_file(file_name, file_content)
+                    update_output = lambda content: output_text.update(value=content)
+                    update_cleaned = lambda content: cleaned_text.update(value=content)
+                    result, cleaned_segment = process_file(file_name, file_content, update_output, update_cleaned)
                     results.append(result)
                     cleaned_results.append(cleaned_segment)
             return "\n".join(results), "\n".join(cleaned_results)
 
+        file_input.change(display_file_content, inputs=file_input, outputs=output_text)
         process_button.click(process_transcripts, inputs=[file_input], outputs=[output_text, cleaned_text])
 
     return demo
