@@ -43,8 +43,8 @@ def append_to_cleaned_transcript(file_name: str, content: str) -> None:
     with open(cleaned_file_path, 'a') as file:
         file.write(content + '\n')
 
-def process_file(file_name):
-    code_blocks, num_blocks = extract_markdown_segments(os.path.join(TRANSCRIPTS_FOLDER, file_name))
+def process_file(file_name, content):
+    code_blocks, num_blocks = extract_markdown_segments(content)
 
     results = []
     results.append(f"Found {num_blocks} markdown segments in the audio-to-text transcription from {file_name}.\n")
@@ -105,9 +105,8 @@ def gradio_interface():
             cleaned_results = []
             for file in files:
                 file_name = os.path.basename(file.name)
-                with open(os.path.join(TRANSCRIPTS_FOLDER, file_name), 'wb') as f:
-                    f.write(file.read())
-                result, cleaned_segment = process_file(file_name)
+                file_content = file.read().decode("utf-8")
+                result, cleaned_segment = process_file(file_name, file_content)
                 results.append(result)
                 cleaned_results.append(cleaned_segment)
             return "\n".join(results), "\n".join(cleaned_results)
