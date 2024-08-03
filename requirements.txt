@@ -1,2 +1,5 @@
 ollama
 gradio
+openai
+python-dotenv
+async_timeout
