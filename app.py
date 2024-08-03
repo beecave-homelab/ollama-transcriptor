@@ -26,13 +26,9 @@ UPLOAD_FOLDER = "./uploads"
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
-def predict(message, history):
+def predict(segment, history):
     history_openai_format = [{"role": "system", "content": system_message}]
-    for human, assistant in history:
-        history_openai_format.append({"role": "user", "content": human})
-        if assistant is not None:
-            history_openai_format.append({"role": "assistant", "content": assistant})
-    history_openai_format.append({"role": "user", "content": message})
+    history_openai_format.append({"role": "user", "content": segment})
   
     response = client.chat.completions.create(
         model=MODEL,
@@ -48,7 +44,8 @@ def predict(message, history):
             partial_message += chunk.choices[0].delta.content
             yield partial_message
 
-def add_message(history, files, text):
+def process_transcripts(files):
+    history = []
     if files is not None:
         for file in files:
             file_path = os.path.join(UPLOAD_FOLDER, os.path.basename(file.name))
@@ -57,48 +54,27 @@ def add_message(history, files, text):
                 file_content = read_file_content(file_path)
                 segments = process_content(file_content)
                 for segment in segments:
-                    history.append([f"File uploaded: {file.name}\nContent:\n{segment}", None])
-                    bot_response(history)  # Trigger bot response for each segment
+                    for output in predict(segment, history):
+                        history.append((segment, output))
+                        yield output
             else:
-                history.append([f"Unsupported file type: {file.name}", None])
-    if text is not None:
-        history.append([text, None])
-        bot_response(history)  # Trigger bot response for text message
-    return history, gr.update(value="", interactive=True)
-
-def bot_response(history):
-    if not history:
-        raise ValueError("History is empty, cannot generate a response.")
-    
-    # Combine all previous messages and file contents
-    combined_message = "\n".join([entry[0] for entry in history if entry[1] is None])
-    assistant_response = list(predict(combined_message, history[:-1]))[-1]
-    history[-1][1] = assistant_response
-    return history
+                yield f"Unsupported file type: {file.name}"
 
 with gr.Blocks(fill_height=True) as demo:
-    chatbot = gr.Chatbot(
-        elem_id="chatbot",
-        bubble_full_width=False,
-        scale=1,
-    )
-
-    chat_input = gr.Textbox(
-        interactive=True,
-        placeholder="Enter message...",
-        show_label=False
-    )
-
     file_input = gr.File(
         file_count="multiple",
         type="filepath",
         interactive=True,
-        show_label=False
+        show_label=False,
+        label="Upload Transcript Files"
     )
 
-    chat_msg = chat_input.submit(add_message, [chatbot, file_input, chat_input], [chatbot, chat_input])
-    file_msg = file_input.change(add_message, [chatbot, file_input, chat_input], [chatbot, chat_input])
-    bot_msg = chat_msg.then(bot_response, chatbot, chatbot, api_name="bot_response")
-    bot_msg.then(lambda: gr.update(value="", interactive=True), None, [chat_input])
+    output_display = gr.Textbox(
+        interactive=False,
+        show_label=False,
+        label="Output"
+    )
+
+    file_input.change(process_transcripts, inputs=[file_input], outputs=[output_display])
 
 demo.launch()
