@@ -3,6 +3,7 @@ from openai import OpenAI
 import gradio as gr
 from dotenv import load_dotenv
 import shutil
+from modules.transcriptProcessor import check_file_type, read_file_content, process_content
 
 # Load environment variables
 load_dotenv()
@@ -52,11 +53,17 @@ def add_message(history, files, text):
         for file in files:
             file_path = os.path.join(UPLOAD_FOLDER, os.path.basename(file.name))
             shutil.copy(file.name, file_path)
-            with open(file_path, 'r') as f:
-                file_content = f.read()
-            history.append((f"File uploaded: {file.name}\nContent:\n{file_content}", None))
+            if check_file_type(file_path):
+                file_content = read_file_content(file_path)
+                segments = process_content(file_content)
+                for segment in segments:
+                    history.append([f"File uploaded: {file.name}\nContent:\n{segment}", None])
+                    bot_response(history)  # Trigger bot response for each segment
+            else:
+                history.append([f"Unsupported file type: {file.name}", None])
     if text is not None:
-        history.append((text, None))
+        history.append([text, None])
+        bot_response(history)  # Trigger bot response for text message
     return history, gr.update(value="", interactive=True)
 
 def bot_response(history):
@@ -64,7 +71,7 @@ def bot_response(history):
         raise ValueError("History is empty, cannot generate a response.")
     
     # Combine all previous messages and file contents
-    combined_message = "\n".join([entry[0] for entry in history])
+    combined_message = "\n".join([entry[0] for entry in history if entry[1] is None])
     assistant_response = list(predict(combined_message, history[:-1]))[-1]
     history[-1][1] = assistant_response
     return history

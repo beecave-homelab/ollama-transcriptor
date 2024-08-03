@@ -1,5 +1,4 @@
 import os
-import re
 from typing import List
 
 def check_file_type(file_name: str) -> bool:
@@ -21,6 +20,3 @@ def process_content(content: str, max_words: int = 1000) -> List[str]:
     if count_words(content) > max_words:
         return split_content(content, max_words)
     return [content]
-
-def handle_stream(response):
-    return ''.join(chunk['choices'][0]['delta']['content'] for chunk in response if 'choices' in chunk and 'delta' in chunk['choices'][0])
