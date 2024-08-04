@@ -1,83 +1,152 @@
-import ollama
 import os
-import sys
+from openai import OpenAI
+import gradio as gr
+from dotenv import load_dotenv
+import shutil
+from modules.transcriptProcessor import check_file_type, read_file_content, process_content
 import logging
-from typing import List
+from rich.logging import RichHandler
 
-# Add the modules directory to the system path
-script_dir = os.path.dirname(__file__)
-modules_path = os.path.abspath(os.path.join(script_dir, 'modules'))
-sys.path.append(modules_path)
+# Load environment variables
+load_dotenv()
 
-# Log the sys.path for debugging
-logging.basicConfig(filename=os.path.join(script_dir, 'logs', 'code_extraction.log'), level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logging.info(f"sys.path: {sys.path}")
+# Enhanced configuration
+API_KEY = os.getenv("OPENAI_API_KEY")
+BASE_URL = os.getenv("OPENAI_BASE_URL")
+DEFAULT_MODEL = os.getenv("DEFAULT_OPENAI_MODEL")
+SYSTEM_MESSAGE_FILE = os.getenv("SYSTEM_MESSAGE_FILE")
+MAX_TOKENS = int(os.getenv("MAX_TOKENS"))
+TEMPERATURE = float(os.getenv("TEMPERATURE"))
+CLEANED_TRANSCRIPTS_FOLDER = os.getenv("CLEANED_TRANSCRIPTS_FOLDER", "cleaned-transcripts")
 
-try:
-    from modules.findMarkdown import extract_markdown_segments, process_transcripts_folder, handle_stream
-except ModuleNotFoundError as e:
-    logging.error(f"ModuleNotFoundError: {e}")
-    raise
+MODEL_1 = os.getenv("OPENAI_MODEL_1")
+MODEL_2 = os.getenv("OPENAI_MODEL_2")
+MODEL_3 = os.getenv("OPENAI_MODEL_3")
 
-def get_system_message(file_path: str) -> str:
-    try:
-        with open(file_path, 'r') as file:
-            return file.read().strip()
-    except FileNotFoundError:
-        logging.error(f"File not found: {file_path}")
-        raise
-    except Exception as e:
-        logging.error(f"An error occurred while reading the system message file {file_path}", exc_info=True)
-        raise
+# Logging setup
+logging.basicConfig(level="DEBUG", handlers=[RichHandler()])
+logger = logging.getLogger("transcript_processor")
 
-def append_to_cleaned_transcript(file_name: str, content: str) -> None:
-    cleaned_transcripts_folder = os.path.join(script_dir, 'cleaned-transcripts')
-    if not os.path.exists(cleaned_transcripts_folder):
-        os.makedirs(cleaned_transcripts_folder)
-    
-    cleaned_file_path = os.path.join(cleaned_transcripts_folder, file_name)
-    with open(cleaned_file_path, 'a') as file:
-        file.write(content + '\n')
+client = OpenAI(api_key=API_KEY, base_url=BASE_URL)
 
-def main() -> None:
-    """The main function."""
-    
-    # Load system message from file
-    system_message_path = os.path.join(script_dir, 'system-message', 'clean_transcript', 'system.md')
-    system_message_content = get_system_message(system_message_path)
-    
-    transcripts_folder = os.path.join(script_dir, 'transcripts')
-    markdown_files: List[str] = process_transcripts_folder(transcripts_folder)
+# Check if the system message file exists
+if not os.path.exists(SYSTEM_MESSAGE_FILE):
+    raise FileNotFoundError(f"System message file not found: {SYSTEM_MESSAGE_FILE}")
 
-    for file_name in markdown_files:
-        # Extract markdown segments
-        code_blocks, num_blocks = extract_markdown_segments(os.path.join(transcripts_folder, file_name))
+# Read the system message from file
+with open(SYSTEM_MESSAGE_FILE, 'r') as file:
+    system_message = file.read()
 
-        print(f"Found {num_blocks} markdown segments in the audio-to-text transcription from {file_name}.\n")
-        print("—" * 30)
+# Ensure the uploads and cleaned transcripts directories exist
+UPLOAD_FOLDER = "./uploads"
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
 
-        for idx, code in enumerate(code_blocks, start=1):
-            # Process markdown segments
-            system_message = {
-                'role': 'system',
-                'content': system_message_content
-            }
-            user_message = {
-                'role': 'user',
-                'content': code.strip()
-            }
-            messages = [system_message, user_message]
-            response = ollama.chat(model='qwen2:7b-instruct-q5_K_S', messages=messages, stream=True)
-            
-            # Capture the response and append to cleaned transcript
-            response_content = []
-            for chunk in response:
-                response_content.append(chunk['message']['content'])
-                print(chunk['message']['content'], end='')  # Also print to console
-            
-            cleaned_content = ''.join(response_content)
-            append_to_cleaned_transcript(file_name, cleaned_content)
-            print("\n" + "-"*50 + "\n")
+if not os.path.exists(CLEANED_TRANSCRIPTS_FOLDER):
+    os.makedirs(CLEANED_TRANSCRIPTS_FOLDER)
+
+def predict(segment, history, model, max_tokens, temperature):
+    history_openai_format = [{"role": "system", "content": system_message}]
+    history_openai_format.append({"role": "user", "content": segment})
+  
+    response = client.chat.completions.create(
+        model=model,
+        messages=history_openai_format,
+        max_tokens=max_tokens,
+        temperature=temperature,
+        stream=True
+    )
+
+    full_message = ""
+    for chunk in response:
+        if chunk.choices[0].delta.content is not None:
+            full_message += chunk.choices[0].delta.content
+            yield full_message
+
+def process_transcripts(files, model, max_tokens, temperature):
+    history = []
+    if files is not None:
+        for file in files:
+            try:
+                file_path = os.path.join(UPLOAD_FOLDER, os.path.basename(file.name))
+                shutil.copy(file.name, file_path)
+                if check_file_type(file_path):
+                    file_content = read_file_content(file_path)
+                    segments = process_content(file_content)
+                    cleaned_file_path = os.path.join(CLEANED_TRANSCRIPTS_FOLDER, os.path.basename(file.name))
+                    with open(cleaned_file_path, 'w') as cleaned_file:  # Open the file once in write mode
+                        for segment in segments:
+                            output_stream = predict(segment, history, model, max_tokens, temperature)
+                            assistant_response = ""
+                            for output in output_stream:
+                                assistant_response = output  # Accumulate the complete response
+                                yield output
+                            history.append([segment, assistant_response])
+                            cleaned_file.write(assistant_response + "\n")  # Write the full response to the file
+                else:
+                    yield f"Unsupported file type: {file.name}"
+            except Exception as e:
+                logger.error(f"Error processing file {file.name}: {e}")
+                yield f"An error occurred while processing {file.name}: {e}"
+
+def create_gradio_interface():
+    theme = gr.themes.Base(
+        primary_hue="green",
+        secondary_hue="stone",
+        neutral_hue="gray",
+        font=("Helvetica", "sans-serif"),
+    ).set(
+        body_background_fill="linear-gradient(to right, #2c5e1a, #4a3728)",
+        body_background_fill_dark="linear-gradient(to right, #1a3c0f, #2e2218)",
+        button_primary_background_fill="#4a3728",
+        button_primary_background_fill_hover="#5c4636",
+        block_title_text_color="#e0d8b0",
+        block_label_text_color="#c1b78f",
+    )
+
+    with gr.Blocks(theme=theme) as demo:
+        gr.Markdown(
+            """
+            <div style="text-align: center;">
+            # Transcript Processor
+            Upload your transcript files for processing.
+            </div>
+            """,
+            elem_id="centered-markdown"
+        )
+        with gr.Row():
+            with gr.Column(scale=1):
+                with gr.Accordion("Model Configuration", open=True):
+                    model_choice = gr.Dropdown(
+                        choices=[MODEL_1, MODEL_2, MODEL_3],
+                        value=DEFAULT_MODEL,
+                        label="Model"
+                    )
+                    temperature = gr.Slider(minimum=0, maximum=1, value=float(TEMPERATURE), label="Temperature")
+                    max_tokens = gr.Slider(minimum=1, maximum=4096, step=1, value=int(MAX_TOKENS), label="Max Tokens")
+
+            with gr.Column(scale=2):
+                file_input = gr.File(
+                    file_count="multiple",
+                    type="filepath",
+                    interactive=True,
+                    show_label=False,
+                    label="Upload Transcript Files"
+                )
+
+                output_display = gr.Textbox(
+                    interactive=False,
+                    show_label=False,
+                    label="Output"
+                )
+
+        file_input.change(process_transcripts, inputs=[file_input, model_choice, max_tokens, temperature], outputs=[output_display])
+
+    return demo
+
+# Create the Gradio interface
+demo = create_gradio_interface()
 
 if __name__ == "__main__":
-    main()
+    demo.queue()
+    demo.launch()

@@ -1,19 +1,13 @@
 import re
 import os
 
-def extract_markdown_segments(file_path: str):
+def extract_markdown_segments(content: str):
     try:
-        # Read the user message from a file
-        with open(file_path, 'r') as file:
-            user_message_content = file.read()
-
-        # Extract code blocks from the user message
-        code_blocks = re.findall(r'```md(.*?)```', user_message_content, re.DOTALL)
+        # Extract code blocks from the content
+        code_blocks = re.findall(r'```md(.*?)```', content, re.DOTALL)
         num_blocks = len(code_blocks)
 
         return code_blocks, num_blocks
-    except FileNotFoundError:
-        raise
     except Exception as e:
         raise
 

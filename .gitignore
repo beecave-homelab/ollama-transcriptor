@@ -6,11 +6,12 @@
 !*.py
 !*.html
 !Dockerfile
-!*yml
+!*.yml
 !*.yaml
 !*.env.example
 !README.md
 !LICENSE
+!requirements.txt
 !/modules/
 !/modules/findMarkdown.py
 !/modules/messageColor.py
