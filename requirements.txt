@@ -1,6 +1,4 @@
-ollama
-gradio
-gradio_tools
 openai
+gradio
 python-dotenv
-async_timeout
+rich

@@ -4,16 +4,28 @@ import gradio as gr
 from dotenv import load_dotenv
 import shutil
 from modules.transcriptProcessor import check_file_type, read_file_content, process_content
+import logging
+from rich.logging import RichHandler
 
 # Load environment variables
 load_dotenv()
 
+# Enhanced configuration
 API_KEY = os.getenv("OPENAI_API_KEY")
 BASE_URL = os.getenv("OPENAI_BASE_URL")
-MODEL = os.getenv("OPENAI_MODEL")
+DEFAULT_MODEL = os.getenv("DEFAULT_OPENAI_MODEL")
 SYSTEM_MESSAGE_FILE = os.getenv("SYSTEM_MESSAGE_FILE")
 MAX_TOKENS = int(os.getenv("MAX_TOKENS"))
 TEMPERATURE = float(os.getenv("TEMPERATURE"))
+CLEANED_TRANSCRIPTS_FOLDER = os.getenv("CLEANED_TRANSCRIPTS_FOLDER", "cleaned-transcripts")
+
+MODEL_1 = os.getenv("OPENAI_MODEL_1")
+MODEL_2 = os.getenv("OPENAI_MODEL_2")
+MODEL_3 = os.getenv("OPENAI_MODEL_3")
+
+# Logging setup
+logging.basicConfig(level="DEBUG", handlers=[RichHandler()])
+logger = logging.getLogger("transcript_processor")
 
 client = OpenAI(api_key=API_KEY, base_url=BASE_URL)
 
@@ -25,76 +37,116 @@ if not os.path.exists(SYSTEM_MESSAGE_FILE):
 with open(SYSTEM_MESSAGE_FILE, 'r') as file:
     system_message = file.read()
 
-# Ensure the uploads directory exists
+# Ensure the uploads and cleaned transcripts directories exist
 UPLOAD_FOLDER = "./uploads"
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
-def predict(segment, history):
+if not os.path.exists(CLEANED_TRANSCRIPTS_FOLDER):
+    os.makedirs(CLEANED_TRANSCRIPTS_FOLDER)
+
+def predict(segment, history, model, max_tokens, temperature):
     history_openai_format = [{"role": "system", "content": system_message}]
     history_openai_format.append({"role": "user", "content": segment})
   
     response = client.chat.completions.create(
-        model=MODEL,
+        model=model,
         messages=history_openai_format,
-        max_tokens=MAX_TOKENS,
-        temperature=TEMPERATURE,
+        max_tokens=max_tokens,
+        temperature=temperature,
         stream=True
     )
 
-    partial_message = ""
+    full_message = ""
     for chunk in response:
         if chunk.choices[0].delta.content is not None:
-            partial_message += chunk.choices[0].delta.content
-            yield partial_message
+            full_message += chunk.choices[0].delta.content
+            yield full_message
 
-def process_transcripts(files):
+def process_transcripts(files, model, max_tokens, temperature):
     history = []
-    full_history = ""
     if files is not None:
         for file in files:
-            file_path = os.path.join(UPLOAD_FOLDER, os.path.basename(file.name))
-            shutil.copy(file.name, file_path)
-            if check_file_type(file_path):
-                file_content = read_file_content(file_path)
-                segments = process_content(file_content)
-                for segment in segments:
-                    output_stream = predict(segment, history)
-                    assistant_response = ""
-                    for output in output_stream:
-                        assistant_response += output
-                        yield output, full_history
-                    history.append([segment, assistant_response])
-                    full_history += f"\nUser: {segment}\nAssistant: {assistant_response}\n"
-            else:
-                yield f"Unsupported file type: {file.name}", full_history
-        yield "", full_history
+            try:
+                file_path = os.path.join(UPLOAD_FOLDER, os.path.basename(file.name))
+                shutil.copy(file.name, file_path)
+                if check_file_type(file_path):
+                    file_content = read_file_content(file_path)
+                    segments = process_content(file_content)
+                    cleaned_file_path = os.path.join(CLEANED_TRANSCRIPTS_FOLDER, os.path.basename(file.name))
+                    with open(cleaned_file_path, 'w') as cleaned_file:  # Open the file once in write mode
+                        for segment in segments:
+                            output_stream = predict(segment, history, model, max_tokens, temperature)
+                            assistant_response = ""
+                            for output in output_stream:
+                                assistant_response = output  # Accumulate the complete response
+                                yield output
+                            history.append([segment, assistant_response])
+                            cleaned_file.write(assistant_response + "\n")  # Write the full response to the file
+                else:
+                    yield f"Unsupported file type: {file.name}"
+            except Exception as e:
+                logger.error(f"Error processing file {file.name}: {e}")
+                yield f"An error occurred while processing {file.name}: {e}"
 
-with gr.Blocks(fill_height=True) as demo:
-    file_input = gr.File(
-        file_count="multiple",
-        type="filepath",
-        interactive=True,
-        show_label=False,
-        label="Upload Transcript Files"
+def create_gradio_interface():
+    theme = gr.themes.Base(
+        primary_hue="green",
+        secondary_hue="stone",
+        neutral_hue="gray",
+        font=("Helvetica", "sans-serif"),
+    ).set(
+        body_background_fill="linear-gradient(to right, #2c5e1a, #4a3728)",
+        body_background_fill_dark="linear-gradient(to right, #1a3c0f, #2e2218)",
+        button_primary_background_fill="#4a3728",
+        button_primary_background_fill_hover="#5c4636",
+        block_title_text_color="#e0d8b0",
+        block_label_text_color="#c1b78f",
     )
 
-    stream_display = gr.Textbox(
-        interactive=False,
-        show_label=False,
-        label="Stream Output"
-    )
+    with gr.Blocks(theme=theme) as demo:
+        gr.Markdown(
+            """
+            <div style="text-align: center;">
+            # Transcript Processor
+            Upload your transcript files for processing.
+            </div>
+            """,
+            elem_id="centered-markdown"
+        )
+        with gr.Row():
+            with gr.Column(scale=1):
+                with gr.Accordion("Model Configuration", open=True):
+                    model_choice = gr.Dropdown(
+                        choices=[MODEL_1, MODEL_2, MODEL_3],
+                        value=DEFAULT_MODEL,
+                        label="Model"
+                    )
+                    temperature = gr.Slider(minimum=0, maximum=1, value=float(TEMPERATURE), label="Temperature")
+                    max_tokens = gr.Slider(minimum=1, maximum=4096, step=1, value=int(MAX_TOKENS), label="Max Tokens")
 
-    history_display = gr.Textbox(
-        interactive=False,
-        show_label=False,
-        label="History"
-    )
+            with gr.Column(scale=2):
+                file_input = gr.File(
+                    file_count="multiple",
+                    type="filepath",
+                    interactive=True,
+                    show_label=False,
+                    label="Upload Transcript Files"
+                )
 
-    file_input.change(
-        process_transcripts, 
-        inputs=[file_input], 
-        outputs=[stream_display, history_display]
-    )
+                output_display = gr.Textbox(
+                    interactive=False,
+                    show_label=False,
+                    label="Output"
+                )
 
-demo.launch()
+        file_input.change(process_transcripts, inputs=[file_input, model_choice, max_tokens, temperature], outputs=[output_display])
+
+    return demo
+
+# Create the Gradio interface
+demo = create_gradio_interface()
+
+if __name__ == "__main__":
+    demo.queue()
+    demo.launch()
