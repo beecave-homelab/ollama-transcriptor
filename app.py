@@ -63,17 +63,19 @@ def predict(segment, history, model, max_tokens, temperature):
             full_message += chunk.choices[0].delta.content
             yield full_message
 
-def process_transcripts(files, model, max_tokens, temperature):
+def process_transcripts(message, model, max_tokens, temperature):
     history = []
+    files = message["files"]
+    text = message["text"]
+
+    # Handle file inputs
     if files is not None:
-        for file in files:
+        for file_path in files:
             try:
-                file_path = os.path.join(UPLOAD_FOLDER, os.path.basename(file.name))
-                shutil.copy(file.name, file_path)
                 if check_file_type(file_path):
                     file_content = read_file_content(file_path)
                     segments = process_content(file_content)
-                    cleaned_file_path = os.path.join(CLEANED_TRANSCRIPTS_FOLDER, os.path.basename(file.name))
+                    cleaned_file_path = os.path.join(CLEANED_TRANSCRIPTS_FOLDER, os.path.basename(file_path))
                     with open(cleaned_file_path, 'w') as cleaned_file:  # Open the file once in write mode
                         for segment in segments:
                             output_stream = predict(segment, history, model, max_tokens, temperature)
@@ -84,10 +86,21 @@ def process_transcripts(files, model, max_tokens, temperature):
                             history.append([segment, assistant_response])
                             cleaned_file.write(assistant_response + "\n")  # Write the full response to the file
                 else:
-                    yield f"Unsupported file type: {file.name}"
+                    yield f"Unsupported file type: {file_path}"
             except Exception as e:
-                logger.error(f"Error processing file {file.name}: {e}")
-                yield f"An error occurred while processing {file.name}: {e}"
+                logger.error(f"Error processing file {file_path}: {e}")
+                yield f"An error occurred while processing {file_path}: {e}"
+    
+    # Handle text input
+    if text is not None:
+        segments = process_content(text)
+        for segment in segments:
+            output_stream = predict(segment, history, model, max_tokens, temperature)
+            assistant_response = ""
+            for output in output_stream:
+                assistant_response = output  # Accumulate the complete response
+                yield output
+            history.append([segment, assistant_response])
 
 def create_gradio_interface():
     theme = gr.themes.Base(
@@ -107,10 +120,8 @@ def create_gradio_interface():
     with gr.Blocks(theme=theme) as demo:
         gr.Markdown(
             """
-            <div style="text-align: center;">
             # Transcript Processor
-            Upload your transcript files for processing.
-            </div>
+            Upload your transcript files for processing or enter text.
             """,
             elem_id="centered-markdown"
         )
@@ -118,7 +129,7 @@ def create_gradio_interface():
             with gr.Column(scale=1):
                 with gr.Accordion("Model Configuration", open=True):
                     model_choice = gr.Dropdown(
-                        choices=[MODEL_1, MODEL_2, MODEL_3],
+                        choices=[DEFAULT_MODEL, MODEL_1, MODEL_2, MODEL_3],
                         value=DEFAULT_MODEL,
                         label="Model"
                     )
@@ -126,12 +137,11 @@ def create_gradio_interface():
                     max_tokens = gr.Slider(minimum=1, maximum=4096, step=1, value=int(MAX_TOKENS), label="Max Tokens")
 
             with gr.Column(scale=2):
-                file_input = gr.File(
-                    file_count="multiple",
-                    type="filepath",
+                chat_input = gr.MultimodalTextbox(
                     interactive=True,
-                    show_label=False,
-                    label="Upload Transcript Files"
+                    file_count="multiple",
+                    placeholder="Enter message or upload file...",
+                    show_label=False
                 )
 
                 output_display = gr.Textbox(
@@ -140,7 +150,7 @@ def create_gradio_interface():
                     label="Output"
                 )
 
-        file_input.change(process_transcripts, inputs=[file_input, model_choice, max_tokens, temperature], outputs=[output_display])
+        chat_input.change(process_transcripts, inputs=[chat_input, model_choice, max_tokens, temperature], outputs=[output_display])
 
     return demo
 
