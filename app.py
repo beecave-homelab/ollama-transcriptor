@@ -159,14 +159,13 @@ def create_gradio_interface():
 
                 gr.Markdown(
                     """
-                    ### Processed Output
-                    The processed text and responses will be displayed here.
+                    ## Transcribing process
                     """
                 )
                 output_display = gr.Textbox(
                     interactive=False,
-                    show_label=False,
-                    label="Output"
+                    show_label=True,
+                    label="Status of the text cleaning process:",
                 )
 
         with gr.Row():
@@ -174,20 +173,19 @@ def create_gradio_interface():
                 chat_input = gr.MultimodalTextbox(
                     interactive=True,
                     file_count="multiple",
-                    placeholder="Enter the transcript text or upload it as a file.",
+                    placeholder="Enter the transcript text or upload it as a `.txt` or `md` file.",
                     show_label=False
                 )
 
                 gr.Markdown(
                     """
-                    # Cleaned transcript
-                    Your cleaned and reformatted transcript will be available below.
+                    ## Cleaned transcript
                     """
                 )
                 cleaned_transcript_display = gr.Textbox(
                     interactive=False,
-                    show_label=False,
-                    label="Cleaned Transcript",
+                    show_label=True,
+                    label="When processing is finished, your cleaned and reformatted transcript will be available below:",
                     show_copy_button=True  # Add copy to clipboard button
                 )
 
