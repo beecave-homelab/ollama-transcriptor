@@ -48,7 +48,7 @@ if not os.path.exists(CLEANED_TRANSCRIPTS_FOLDER):
 def predict(segment, history, model, max_tokens, temperature):
     history_openai_format = [{"role": "system", "content": system_message}]
     history_openai_format.append({"role": "user", "content": segment})
-  
+
     response = client.chat.completions.create(
         model=model,
         messages=history_openai_format,
@@ -63,44 +63,65 @@ def predict(segment, history, model, max_tokens, temperature):
             full_message += chunk.choices[0].delta.content
             yield full_message
 
-def process_transcripts(message, model, max_tokens, temperature):
+def transcript_cleaning_process_info(message, model, max_tokens, temperature):
     history = []
     files = message["files"]
     text = message["text"]
+    output_display_content = "Transcript text cleaning has started.\n\n"
+    cleaned_content = ""
+
+    combined_content = ""
+    cleaned_file_name = "cleaned_transcript.txt"
 
     # Handle file inputs
     if files is not None:
         for file_path in files:
-            try:
-                if check_file_type(file_path):
-                    file_content = read_file_content(file_path)
-                    segments = process_content(file_content)
-                    cleaned_file_path = os.path.join(CLEANED_TRANSCRIPTS_FOLDER, os.path.basename(file_path))
-                    with open(cleaned_file_path, 'w') as cleaned_file:  # Open the file once in write mode
-                        for segment in segments:
-                            output_stream = predict(segment, history, model, max_tokens, temperature)
-                            assistant_response = ""
-                            for output in output_stream:
-                                assistant_response = output  # Accumulate the complete response
-                                yield output
-                            history.append([segment, assistant_response])
-                            cleaned_file.write(assistant_response + "\n")  # Write the full response to the file
-                else:
-                    yield f"Unsupported file type: {file_path}"
-            except Exception as e:
-                logger.error(f"Error processing file {file_path}: {e}")
-                yield f"An error occurred while processing {file_path}: {e}"
-    
-    # Handle text input
+            if check_file_type(file_path):
+                file_type = os.path.splitext(file_path)[1]
+                file_content = read_file_content(file_path)
+                file_name = os.path.basename(file_path)
+                cleaned_file_name = file_name  # Save cleaned transcript with the same name
+                combined_content += file_content + "\n"
+                output_display_content += f"Uploaded a {file_type} file.\n"
+                output_display_content += f"{file_name} was uploaded for text cleaning.\n"
+                word_count = len(file_content.split())
+                output_display_content += f"The transcript of {file_name} contains {word_count} words.\n"
+            else:
+                output_display_content = f"Unsupported file type: {file_path}\n"
+                yield output_display_content, ""
+
+    # Add text input to combined content
     if text is not None:
-        segments = process_content(text)
-        for segment in segments:
-            output_stream = predict(segment, history, model, max_tokens, temperature)
-            assistant_response = ""
-            for output in output_stream:
-                assistant_response = output  # Accumulate the complete response
-                yield output
-            history.append([segment, assistant_response])
+        combined_content += text
+        word_count = len(text.split())
+        output_display_content += f"The transcript textbox contains {word_count} words.\n"
+
+    # Process the combined content if there's any
+    if combined_content.strip():
+        segments = process_content(combined_content)
+        num_segments = len(segments)
+        output_display_content += f"The transcript will be sent in {num_segments} segments.\n"
+
+        cleaned_file_path = os.path.join(CLEANED_TRANSCRIPTS_FOLDER, cleaned_file_name)
+        with open(cleaned_file_path, 'w') as cleaned_file:
+            for i, segment in enumerate(segments):
+                output_display_content += f"Sending segment {i + 1} of {num_segments}.\n"
+                yield output_display_content, ""
+                output_stream = predict(segment, history, model, max_tokens, temperature)
+                assistant_response = ""
+                for output in output_stream:
+                    assistant_response = output  # Accumulate the complete response
+                history.append([segment, assistant_response])
+                cleaned_file.write(assistant_response + "\n")  # Write the full response to the file
+                output_display_content += f"Cleaned text for segment {i + 1} of {num_segments}.\n"
+
+        output_display_content += "The text cleaning process has finished.\n"
+        with open(cleaned_file_path, 'r') as cleaned_file:  # Read the cleaned file content
+            cleaned_content = cleaned_file.read()
+    else:
+        output_display_content += "No valid content to process.\n"
+
+    yield output_display_content, cleaned_content  # Yielding final results
 
 def create_gradio_interface():
     theme = gr.themes.Base(
@@ -136,25 +157,44 @@ def create_gradio_interface():
                     temperature = gr.Slider(minimum=0, maximum=1, value=float(TEMPERATURE), label="Temperature")
                     max_tokens = gr.Slider(minimum=1, maximum=4096, step=1, value=int(MAX_TOKENS), label="Max Tokens")
 
-            with gr.Column(scale=2):
-                chat_input = gr.MultimodalTextbox(
-                    interactive=True,
-                    file_count="multiple",
-                    placeholder="Enter message or upload file...",
-                    show_label=False
+                gr.Markdown(
+                    """
+                    ### Processed Output
+                    The processed text and responses will be displayed here.
+                    """
                 )
-
                 output_display = gr.Textbox(
                     interactive=False,
                     show_label=False,
                     label="Output"
                 )
 
-        chat_input.change(process_transcripts, inputs=[chat_input, model_choice, max_tokens, temperature], outputs=[output_display])
+        with gr.Row():
+            with gr.Column(scale=2):
+                chat_input = gr.MultimodalTextbox(
+                    interactive=True,
+                    file_count="multiple",
+                    placeholder="Enter the transcript text or upload it as a file.",
+                    show_label=False
+                )
+
+                gr.Markdown(
+                    """
+                    # Cleaned transcript
+                    Your cleaned and reformatted transcript will be available below.
+                    """
+                )
+                cleaned_transcript_display = gr.Textbox(
+                    interactive=False,
+                    show_label=False,
+                    label="Cleaned Transcript",
+                    show_copy_button=True  # Add copy to clipboard button
+                )
+
+                chat_input.submit(transcript_cleaning_process_info, inputs=[chat_input, model_choice, max_tokens, temperature], outputs=[output_display, cleaned_transcript_display])
 
     return demo
 
-# Create the Gradio interface
 demo = create_gradio_interface()
 
 if __name__ == "__main__":
