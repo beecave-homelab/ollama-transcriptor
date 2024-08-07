@@ -22,9 +22,8 @@
 # system messages
 !/system-message/
 !/system-message/clean_transcript
-!/system-message/clean_transcript/system.md
+!/system-message/clean_transcript/clean_transcript.md
 !/system-message/clean_text
-!/system-message/clean_text/system.md
+!/system-message/clean_text/clean_text.md
 !/system-message/clean_transcript_v2
-!/system-message/clean_transcript_v2/system.md
-
+!/system-message/clean_transcript_v2/clean_transcript_v2.md
