@@ -14,7 +14,9 @@ load_dotenv()
 API_KEY = os.getenv("OPENAI_API_KEY")
 BASE_URL = os.getenv("OPENAI_BASE_URL")
 DEFAULT_MODEL = os.getenv("DEFAULT_OPENAI_MODEL")
-SYSTEM_MESSAGE_FILE = os.getenv("SYSTEM_MESSAGE_FILE")
+SYSTEM_MESSAGE_1 = os.getenv("SYSTEM_MESSAGE_1")
+SYSTEM_MESSAGE_2 = os.getenv("SYSTEM_MESSAGE_2")
+SYSTEM_MESSAGE_3 = os.getenv("SYSTEM_MESSAGE_3")
 MAX_TOKENS = int(os.getenv("MAX_TOKENS"))
 TEMPERATURE = float(os.getenv("TEMPERATURE"))
 CLEANED_TRANSCRIPTS_FOLDER = os.getenv("CLEANED_TRANSCRIPTS_FOLDER", "cleaned-transcripts")
@@ -29,14 +31,6 @@ logger = logging.getLogger("transcript_processor")
 
 client = OpenAI(api_key=API_KEY, base_url=BASE_URL)
 
-# Check if the system message file exists
-if not os.path.exists(SYSTEM_MESSAGE_FILE):
-    raise FileNotFoundError(f"System message file not found: {SYSTEM_MESSAGE_FILE}")
-
-# Read the system message from file
-with open(SYSTEM_MESSAGE_FILE, 'r') as file:
-    system_message = file.read()
-
 # Ensure the uploads and cleaned transcripts directories exist
 UPLOAD_FOLDER = "./uploads"
 if not os.path.exists(UPLOAD_FOLDER):
@@ -45,7 +39,14 @@ if not os.path.exists(UPLOAD_FOLDER):
 if not os.path.exists(CLEANED_TRANSCRIPTS_FOLDER):
     os.makedirs(CLEANED_TRANSCRIPTS_FOLDER)
 
-def predict(segment, history, model, max_tokens, temperature):
+# Ensure system message files exist
+for system_message_file in [SYSTEM_MESSAGE_1, SYSTEM_MESSAGE_2, SYSTEM_MESSAGE_3]:
+    if system_message_file and not os.path.exists(system_message_file):
+        os.makedirs(os.path.dirname(system_message_file), exist_ok=True)
+        with open(system_message_file, 'w') as file:
+            file.write("")
+
+def predict(segment, history, model, max_tokens, temperature, system_message):
     history_openai_format = [{"role": "system", "content": system_message}]
     history_openai_format.append({"role": "user", "content": segment})
 
@@ -63,7 +64,7 @@ def predict(segment, history, model, max_tokens, temperature):
             full_message += chunk.choices[0].delta.content
             yield full_message
 
-def transcript_cleaning_process_info(message, model, max_tokens, temperature):
+def transcript_cleaning_process_info(message, model, max_tokens, temperature, system_message):
     history = []
     files = message["files"]
     text = message["text"]
@@ -74,27 +75,25 @@ def transcript_cleaning_process_info(message, model, max_tokens, temperature):
     cleaned_file_name = "cleaned_transcript.txt"
 
     # Handle file inputs
-    if files is not None:
-        for file_path in files:
-            if check_file_type(file_path):
-                file_type = os.path.splitext(file_path)[1]
-                file_content = read_file_content(file_path)
-                file_name = os.path.basename(file_path)
-                cleaned_file_name = file_name  # Save cleaned transcript with the same name
-                combined_content += file_content + "\n"
-                output_display_content += f"Uploaded a {file_type} file.\n"
-                output_display_content += f"{file_name} was uploaded for text cleaning.\n"
-                word_count = len(file_content.split())
-                output_display_content += f"The transcript of {file_name} contains {word_count} words.\n"
-            else:
-                output_display_content = f"Unsupported file type: {file_path}\n"
-                yield output_display_content, ""
-
-    # Add text input to combined content
-    if text is not None:
+    if files is not None and len(files) > 0:
+        file_path = files[0]
+        if check_file_type(file_path):
+            file_type = os.path.splitext(file_path)[1]
+            file_content = read_file_content(file_path)
+            file_name = os.path.basename(file_path)
+            cleaned_file_name = file_name  # Save cleaned transcript with the same name
+            combined_content += file_content + "\n"
+            output_display_content += f"Uploaded a {file_type} file.\n"
+            output_display_content += f"{file_name} was uploaded for text cleaning.\n"
+            word_count = len(file_content.split())
+            output_display_content += f"The transcript of {file_name} contains {word_count} words.\n"
+        else:
+            output_display_content = f"Unsupported file type: {file_path}\n"
+            yield output_display_content, ""
+    elif text is not None and text.strip():
         combined_content += text
         word_count = len(text.split())
-        output_display_content += f"The transcript textbox contains {word_count} words.\n"
+        output_display_content += f"The transcript contains {word_count} words.\n"
 
     # Process the combined content if there's any
     if combined_content.strip():
@@ -107,7 +106,7 @@ def transcript_cleaning_process_info(message, model, max_tokens, temperature):
             for i, segment in enumerate(segments):
                 output_display_content += f"Sending segment {i + 1} of {num_segments}.\n"
                 yield output_display_content, ""
-                output_stream = predict(segment, history, model, max_tokens, temperature)
+                output_stream = predict(segment, history, model, max_tokens, temperature, system_message)
                 assistant_response = ""
                 for output in output_stream:
                     assistant_response = output  # Accumulate the complete response
@@ -122,6 +121,12 @@ def transcript_cleaning_process_info(message, model, max_tokens, temperature):
         output_display_content += "No valid content to process.\n"
 
     yield output_display_content, cleaned_content  # Yielding final results
+
+def read_system_message(file_path):
+    if os.path.exists(file_path):
+        with open(file_path, 'r') as file:
+            return file.read()
+    return ""
 
 def create_gradio_interface():
     theme = gr.themes.Base(
@@ -157,6 +162,35 @@ def create_gradio_interface():
                     temperature = gr.Slider(minimum=0, maximum=1, value=float(TEMPERATURE), label="Temperature")
                     max_tokens = gr.Slider(minimum=1, maximum=4096, step=1, value=int(MAX_TOKENS), label="Max Tokens")
 
+                    system_message_files = {
+                        os.path.basename(SYSTEM_MESSAGE_1): SYSTEM_MESSAGE_1,
+                        os.path.basename(SYSTEM_MESSAGE_2): SYSTEM_MESSAGE_2,
+                        os.path.basename(SYSTEM_MESSAGE_3): SYSTEM_MESSAGE_3
+                    }
+                    system_message_dropdown = gr.Dropdown(
+                        choices=list(system_message_files.keys()),
+                        label="Select System Message",
+                        value=list(system_message_files.keys())[0]
+                    )
+
+                    system_message_input = gr.Textbox(
+                        value=read_system_message(system_message_files[list(system_message_files.keys())[0]]),
+                        label="System Message",
+                        placeholder="System message content...",
+                        lines=10,
+                        interactive=False
+                    )
+
+                    def update_system_message(file_key):
+                        file_path = system_message_files[file_key]
+                        return read_system_message(file_path)
+
+                    system_message_dropdown.change(
+                        update_system_message,
+                        inputs=system_message_dropdown,
+                        outputs=system_message_input
+                    )
+
                 gr.Markdown(
                     """
                     ### Processed Output
@@ -191,7 +225,7 @@ def create_gradio_interface():
                     show_copy_button=True  # Add copy to clipboard button
                 )
 
-                chat_input.submit(transcript_cleaning_process_info, inputs=[chat_input, model_choice, max_tokens, temperature], outputs=[output_display, cleaned_transcript_display])
+                chat_input.submit(transcript_cleaning_process_info, inputs=[chat_input, model_choice, max_tokens, temperature, system_message_input], outputs=[output_display, cleaned_transcript_display])
 
     return demo
 
