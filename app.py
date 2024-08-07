@@ -128,11 +128,6 @@ def read_system_message(file_path):
             return file.read()
     return ""
 
-def save_system_message(content, file_path):
-    with open(file_path, 'w') as file:
-        file.write(content)
-    return content
-
 def create_gradio_interface():
     theme = gr.themes.Base(
         primary_hue="green",
@@ -168,9 +163,9 @@ def create_gradio_interface():
                     max_tokens = gr.Slider(minimum=1, maximum=4096, step=1, value=int(MAX_TOKENS), label="Max Tokens")
 
                     system_message_files = {
-                        "System Message 1": SYSTEM_MESSAGE_1,
-                        "System Message 2": SYSTEM_MESSAGE_2,
-                        "System Message 3": SYSTEM_MESSAGE_3
+                        os.path.basename(SYSTEM_MESSAGE_1): SYSTEM_MESSAGE_1,
+                        os.path.basename(SYSTEM_MESSAGE_2): SYSTEM_MESSAGE_2,
+                        os.path.basename(SYSTEM_MESSAGE_3): SYSTEM_MESSAGE_3
                     }
                     system_message_dropdown = gr.Dropdown(
                         choices=list(system_message_files.keys()),
@@ -181,9 +176,9 @@ def create_gradio_interface():
                     system_message_input = gr.Textbox(
                         value=read_system_message(system_message_files[list(system_message_files.keys())[0]]),
                         label="System Message",
-                        placeholder="Enter system message here...",
+                        placeholder="System message content...",
                         lines=10,
-                        interactive=True
+                        interactive=False
                     )
 
                     def update_system_message(file_key):
@@ -193,16 +188,6 @@ def create_gradio_interface():
                     system_message_dropdown.change(
                         update_system_message,
                         inputs=system_message_dropdown,
-                        outputs=system_message_input
-                    )
-
-                    def save_system_message_wrapper(content):
-                        file_path = system_message_files[system_message_dropdown.value]
-                        return save_system_message(content, file_path)
-
-                    system_message_input.change(
-                        save_system_message_wrapper,
-                        inputs=system_message_input,
                         outputs=system_message_input
                     )
 
