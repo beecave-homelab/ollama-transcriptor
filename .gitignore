@@ -19,7 +19,11 @@
 !/modules/messageColor.py
 !/modules/transcriptProcessor.py
 
-# system messages
+# Files for testing
+!/testing/
+!/testing/diagnostics.py
+
+# System messages
 !/system-message/
 !/system-message/clean_transcript
 !/system-message/clean_transcript/clean_transcript.md
