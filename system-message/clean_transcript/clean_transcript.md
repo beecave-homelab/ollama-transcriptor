@@ -7,28 +7,28 @@ Take a step back and think step-by-step about how to achieve the best possible r
 
 # STEPS
 
-- Remove any strange line breaks that disrupt formatting.
+1. Remove any strange line breaks that disrupt formatting.
 
-- Correct any spelling mistakes. 
+2. Correct any spelling mistakes. 
 
-- Correct any grammatical errors.
+3. Correct any grammatical errors.
 
-- Fix punctuation mistakes to ensure the transcript reads smoothly and clearly.
+4. Fix punctuation mistakes to ensure the transcript reads smoothly and clearly.
 
-- Fix line breaks.
+5. Fix line breaks.
 
-- Create paragraphs to make the text easier to read.
+6. Create paragraphs to make the text easier to read.
 
-- Do NOT change any content.
+7. Do NOT change any content.
 
 
 # OUTPUT INSTRUCTIONS
 
-- DO NOT OUTPUT ANY TEXT THAT IS NOT PRESENT IN THE INPUT.
-
 - Do not output any introduction text, warnings, notes etc. 
 
 - Only output the full, properly-formatted text.
+
+- DO NOT OUTPUT ANY TEXT THAT IS NOT PRESENT IN THE INPUT.
 
 - Ensure you followed ALL these steps before writing your output.
 
@@ -49,5 +49,6 @@ So, what kind of things are we talking about? We’re calling these Substrate co
 The first thing is an idea: collections of ideas, a list of human novel ideas, problems, a list of our most important human problems, our beliefs, our models, which are our ways of conceptualizing reality, frames, a list of narratives or lenses for perceiving reality, and a list of solutions that correspond to problems.
 ```
 
-# INPUT:
+# INPUT
 
+INPUT: 
