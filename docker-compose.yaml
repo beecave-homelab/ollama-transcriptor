@@ -1,0 +1,12 @@
+services:
+  ollama-transcriptor:
+    build: .
+    container_name: ollama-transcriptor
+    ports:
+      - "7860:7860"
+    volumes:
+      - ./system-message:/app/system-message
+      - ./transcripts:/app/transcripts
+      - ./cleaned-transcripts:/app/cleaned-transcripts
+    env_file:
+      - .env
