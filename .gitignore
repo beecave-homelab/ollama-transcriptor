@@ -5,13 +5,17 @@
 !*.gitignore
 !*.py
 !*.html
-!Dockerfile
+
 !*.yml
 !*.yaml
 !*.env.example
 !README.md
 !LICENSE
 !requirements.txt
+
+# Whitelist docker related files
+!Dockerfile
+!.dockerignore
 
 # Modules to use.
 !/modules/
