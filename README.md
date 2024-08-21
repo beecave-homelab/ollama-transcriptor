@@ -38,7 +38,7 @@ To install the Ollama Transcriptor, follow these steps:
    - `python-dotenv`
    - `rich`
 
-4. Set up environment variables by creating a `.env` file in the project directory with the following content:
+4. Set up environment variables by creating a `.env` file in the project directory with the following variables. You can adjust the values to your liking or copy the the default values frok the example file with `cp .env.example .env`:
     ```env
     # OpenAI API credentials
     OPENAI_API_KEY=
