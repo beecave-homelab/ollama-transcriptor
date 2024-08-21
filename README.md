@@ -15,6 +15,34 @@ The application can handle large text inputs by automatically cutting them into 
 ![Python](https://img.shields.io/badge/Python-3.12%2B-blue)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
 
+## Project overview
+```md
+ollama-transcriptor/
+├── app.py
+├── Dockerfile
+├── LICENSE
+├── modules
+│  ├── __init__.py
+│  ├── findMarkdown.py
+│  ├── messageColor.py
+│  ├── transcriptProcessingTool.py
+│  └── transcriptProcessor.py
+├── README.md
+├── requirements.txt
+├── system-message
+│  ├── clean_text
+│  │  └── clean_text.md
+│  ├── clean_text_v2
+│  │  └── clean_text_v2.md
+│  ├── clean_transcript
+│  │  └── clean_transcript.md
+│  └── clean_transcript_v2
+│     └── clean_transcript_v2.md
+├── testing
+│  └── diagnostics.py
+└── transcripts
+```
+
 ## Installation
 
 To install the Ollama Transcriptor, follow these steps:
@@ -67,14 +95,14 @@ To install the Ollama Transcriptor, follow these steps:
 5. In the `system-message` directory you'll find different folders with different system messages. You can use (or adjust) these messages to your liking. To create a new message, create a new folder and `.md` file in the `system-message` directory.
     ```md
     system-message
-        ├── clean_text
-        │  └── clean_text.md
-        ├── clean_text_v2
-        │  └── clean_text_v2.md
-        ├── clean_transcript
-        │  └── clean_transcript.md
-        └── clean_transcript_v2
-        └── clean_transcript_v2.md
+    ├── clean_text
+    │  └── clean_text.md
+    ├── clean_text_v2
+    │  └── clean_text_v2.md
+    ├── clean_transcript
+    │  └── clean_transcript.md
+    └── clean_transcript_v2
+    └── clean_transcript_v2.md
     ```
 
 ## Usage
