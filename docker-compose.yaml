@@ -1,0 +1,16 @@
+services:
+  ollama-transcriptor:
+    build: .
+    container_name: ollama-transcriptor
+    image: ghrc.io/beecave-homelab/ollama-transcriptor:latest
+    restart: unless-stopped
+    ports:
+      - "7861:7860"
+    volumes:
+      - ./system-message:/app/system-message
+      - ./transcripts:/app/transcripts
+      - ./cleaned-transcripts:/app/cleaned-transcripts
+    env_file:
+      - .env
+    extra_hosts:
+      - host.docker.internal:host-gateway

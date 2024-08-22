@@ -1,0 +1,37 @@
+# .dockerignore
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environment directories
+.env
+env/
+venv/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+
+# Ignore version control directories
+.git/
+.gitignore
+
+# OS-generated files
+.DS_Store
+
+# Log files and temporary files
+*.log
+*.tmp
+
+# Ignore system message files (they are mounted as volumes)
+system-message/
+
+# Ignore transcripts (they are mounted as volumes)
+transcripts/
+
+# Ignore cleaned transcripts (they are mounted as volumes)
+cleaned-transcripts/
