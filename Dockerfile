@@ -1,10 +1,10 @@
 # Stage 1: Base image with Python and dependencies
-FROM python:3.10-slim AS base
+FROM python:3.12-slim AS base
 
 # Install system dependencies as root
 USER root
 RUN apt-get update -y && apt-get install -y --no-install-recommends \
-    sudo git build-essential \
+    sudo git build-essential python-dev-is-python3 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
@@ -25,6 +25,8 @@ FROM base AS python-dependencies
 
 # Copy the requirements file and install dependencies
 COPY --chown=appuser:appuser requirements.txt .
+RUN python -m venv venv
+RUN . venv/bin/activate
 RUN pip install -U pip setuptools wheel
 RUN pip install --no-cache-dir -r requirements.txt
 
