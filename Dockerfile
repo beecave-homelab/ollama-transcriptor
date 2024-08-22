@@ -1,5 +1,5 @@
 # Stage 1: Base image with Python and dependencies
-FROM python:3.12-slim AS base
+FROM python:3.10-slim AS base
 
 # Install system dependencies as root
 USER root
@@ -25,6 +25,7 @@ FROM base AS python-dependencies
 
 # Copy the requirements file and install dependencies
 COPY --chown=appuser:appuser requirements.txt .
+RUN pip install -U pip setuptools wheel
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Stage 3: Final stage with application code
