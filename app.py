@@ -14,12 +14,7 @@ load_dotenv()
 API_KEY = os.getenv("OPENAI_API_KEY")
 BASE_URL = os.getenv("OPENAI_BASE_URL")
 
-
 DEFAULT_MODEL = os.getenv("DEFAULT_OPENAI_MODEL")
-MODEL_1 = os.getenv("OPENAI_MODEL_1")
-MODEL_2 = os.getenv("OPENAI_MODEL_2")
-MODEL_3 = os.getenv("OPENAI_MODEL_3")
-
 MODEL_1 = os.getenv("OPENAI_MODEL_1")
 MODEL_2 = os.getenv("OPENAI_MODEL_2")
 MODEL_3 = os.getenv("OPENAI_MODEL_3")
@@ -27,7 +22,6 @@ MODEL_3 = os.getenv("OPENAI_MODEL_3")
 SYSTEM_MESSAGE_1 = os.getenv("SYSTEM_MESSAGE_1")
 SYSTEM_MESSAGE_2 = os.getenv("SYSTEM_MESSAGE_2")
 SYSTEM_MESSAGE_3 = os.getenv("SYSTEM_MESSAGE_3")
-
 
 MAX_TOKENS = int(os.getenv("MAX_TOKENS"))
 TEMPERATURE = float(os.getenv("TEMPERATURE"))
@@ -221,38 +215,6 @@ def create_gradio_interface():
                     show_copy_button=True
                 )
 
-            """
-        )
-
-        with gr.Row():
-            with gr.Column(scale=2):
-                gr.Markdown(
-                    """
-                    ### Text to transcribe
-                    """
-                )
-
-                chat_input = gr.MultimodalTextbox(
-                    interactive=True,
-                    file_count="multiple",
-                    placeholder="Enter the transcript text or upload it as a file.",
-                    show_label=False
-                )
-
-                gr.Markdown(
-                    """
-                    ### Cleaned transcript
-                    Your cleaned and reformatted transcript will be available below.
-                    """
-                )
-
-                cleaned_transcript_display = gr.Textbox(
-                    interactive=False,
-                    show_label=True,
-                    label="Cleaned transcript",
-                    show_copy_button=True
-                )
-
         with gr.Row():
             with gr.Column(scale=1):
                 gr.Markdown(
@@ -281,7 +243,6 @@ def create_gradio_interface():
                         label="Model"
                     )
                     temperature = gr.Slider(minimum=0, maximum=1, value=float(TEMPERATURE), label="Temperature")
-                    max_tokens = gr.Slider(minimum=1, maximum=8192, step=1, value=int(MAX_TOKENS), label="Max Tokens")
                     max_tokens = gr.Slider(minimum=1, maximum=8192, step=1, value=int(MAX_TOKENS), label="Max Tokens")
 
                     system_message_files = {
@@ -315,15 +276,11 @@ def create_gradio_interface():
 
         # Place chat_input.submit here, after model_choice and other elements are defined
         chat_input.submit(transcript_cleaning_process_info, inputs=[chat_input, model_choice, max_tokens, temperature, system_message_input], outputs=[output_display, cleaned_transcript_display])
-        # Place chat_input.submit here, after model_choice and other elements are defined
-        chat_input.submit(transcript_cleaning_process_info, inputs=[chat_input, model_choice, max_tokens, temperature, system_message_input], outputs=[output_display, cleaned_transcript_display])
 
     return demo
 
 # Ensure 'demo' is defined before it is used
-# Ensure 'demo' is defined before it is used
 if __name__ == "__main__":
-    demo = create_gradio_interface()  # Assign the returned value to 'demo'
     demo = create_gradio_interface()  # Assign the returned value to 'demo'
     demo.queue()
     demo.launch()
