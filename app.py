@@ -3,33 +3,38 @@ from openai import OpenAI
 import gradio as gr
 from dotenv import load_dotenv
 import shutil
-from modules.transcriptProcessor import check_file_type, read_file_content, process_content
+from modules.transcriptProcessor import check_file_type, read_file_content
 import logging
 from rich.logging import RichHandler
+import spacy
 
 # Load environment variables
 load_dotenv()
 
-# Enhanced configuration
 API_KEY = os.getenv("OPENAI_API_KEY")
 BASE_URL = os.getenv("OPENAI_BASE_URL")
-DEFAULT_MODEL = os.getenv("DEFAULT_OPENAI_MODEL")
-SYSTEM_MESSAGE_1 = os.getenv("SYSTEM_MESSAGE_1")
-SYSTEM_MESSAGE_2 = os.getenv("SYSTEM_MESSAGE_2")
-SYSTEM_MESSAGE_3 = os.getenv("SYSTEM_MESSAGE_3")
-MAX_TOKENS = int(os.getenv("MAX_TOKENS"))
-TEMPERATURE = float(os.getenv("TEMPERATURE"))
-CLEANED_TRANSCRIPTS_FOLDER = os.getenv("CLEANED_TRANSCRIPTS_FOLDER", "cleaned-transcripts")
 
+DEFAULT_MODEL = os.getenv("DEFAULT_OPENAI_MODEL")
 MODEL_1 = os.getenv("OPENAI_MODEL_1")
 MODEL_2 = os.getenv("OPENAI_MODEL_2")
 MODEL_3 = os.getenv("OPENAI_MODEL_3")
+
+SYSTEM_MESSAGE_1 = os.getenv("SYSTEM_MESSAGE_1")
+SYSTEM_MESSAGE_2 = os.getenv("SYSTEM_MESSAGE_2")
+SYSTEM_MESSAGE_3 = os.getenv("SYSTEM_MESSAGE_3")
+
+MAX_TOKENS = int(os.getenv("MAX_TOKENS"))
+TEMPERATURE = float(os.getenv("TEMPERATURE"))
+CLEANED_TRANSCRIPTS_FOLDER = os.getenv("CLEANED_TRANSCRIPTS_FOLDER", "cleaned-transcripts")
 
 # Logging setup
 logging.basicConfig(level="DEBUG", handlers=[RichHandler()])
 logger = logging.getLogger("transcript_processor")
 
 client = OpenAI(api_key=API_KEY, base_url=BASE_URL)
+
+# Load the spaCy language model for chunking text
+nlp = spacy.load("en_core_web_lg")
 
 # Ensure the uploads and cleaned transcripts directories exist
 UPLOAD_FOLDER = "./uploads"
@@ -45,6 +50,36 @@ for system_message_file in [SYSTEM_MESSAGE_1, SYSTEM_MESSAGE_2, SYSTEM_MESSAGE_3
         os.makedirs(os.path.dirname(system_message_file), exist_ok=True)
         with open(system_message_file, 'w') as file:
             file.write("")
+
+def nest_sentences(document, max_length=1024):
+    """
+    Break down a document into manageable chunks of sentences where each chunk is under max_length characters.
+    
+    Parameters:
+    - document (str): The input text document to be processed.
+    - max_length (int): The maximum character length for each chunk of sentences.
+    
+    Returns:
+    - list: A list where each element is a group of sentences that together are less than max_length characters.
+    """
+    nested = []  # List to hold all chunks of sentences
+    sent = []    # Temporary list to hold sentences for a current chunk
+    length = 0   # Counter to keep track of the character length of the current chunk
+    doc = nlp(document)  # Process the document using spaCy to tokenize into sentences
+    
+    for sentence in doc.sents:
+        length += len(sentence.text)
+        if length < max_length:
+            sent.append(sentence.text)
+        else:
+            nested.append(' '.join(sent))  # Join sentences in the chunk and add to the nested list
+            sent = [sentence.text]  # Start a new chunk with the current sentence
+            length = len(sentence.text)  # Reset the length counter to the length of the current sentence
+
+    if sent:  # Don't forget to add the last chunk if it's not empty
+        nested.append(' '.join(sent))
+
+    return nested
 
 def predict(segment, history, model, max_tokens, temperature, system_message):
     history_openai_format = [{"role": "system", "content": system_message}]
@@ -97,7 +132,7 @@ def transcript_cleaning_process_info(message, model, max_tokens, temperature, sy
 
     # Process the combined content if there's any
     if combined_content.strip():
-        segments = process_content(combined_content)
+        segments = nest_sentences(combined_content, max_length=1024)
         num_segments = len(segments)
         output_display_content += f"The transcript will be sent in {num_segments} segments.\n"
 
@@ -148,19 +183,67 @@ def create_gradio_interface():
             """
             # Transcript Processor
             Upload your transcript files for processing or enter text.
-            """,
-            elem_id="centered-markdown"
+            """
         )
+
+        with gr.Row():
+            with gr.Column(scale=2):
+                gr.Markdown(
+                    """
+                    ### Text to transcribe
+                    """
+                )
+
+                chat_input = gr.MultimodalTextbox(
+                    interactive=True,
+                    file_count="multiple",
+                    placeholder="Enter the transcript text or upload it as a file.",
+                    show_label=False
+                )
+
+                gr.Markdown(
+                    """
+                    ### Cleaned transcript
+                    Your cleaned and reformatted transcript will be available below.
+                    """
+                )
+
+                cleaned_transcript_display = gr.Textbox(
+                    interactive=False,
+                    show_label=True,
+                    label="Cleaned transcript",
+                    show_copy_button=True
+                )
+
         with gr.Row():
             with gr.Column(scale=1):
-                with gr.Accordion("Model Configuration", open=True):
+                gr.Markdown(
+                    """
+                    ### Processed Output
+                    The processed text and responses will be displayed here.
+                    """
+                )
+                output_display = gr.Textbox(
+                                       interactive=False,
+                    show_label=False,
+                    label="Output"
+                )
+
+                gr.Markdown(
+                    """
+                    ### Model configuration
+                    Select the model, set the context length, temperature and which system message to use.
+                    """
+                )
+                
+                with gr.Accordion("Model Configuration", open=False):
                     model_choice = gr.Dropdown(
                         choices=[DEFAULT_MODEL, MODEL_1, MODEL_2, MODEL_3],
                         value=DEFAULT_MODEL,
                         label="Model"
                     )
                     temperature = gr.Slider(minimum=0, maximum=1, value=float(TEMPERATURE), label="Temperature")
-                    max_tokens = gr.Slider(minimum=1, maximum=4096, step=1, value=int(MAX_TOKENS), label="Max Tokens")
+                    max_tokens = gr.Slider(minimum=1, maximum=8192, step=1, value=int(MAX_TOKENS), label="Max Tokens")
 
                     system_message_files = {
                         os.path.basename(SYSTEM_MESSAGE_1): SYSTEM_MESSAGE_1,
@@ -191,46 +274,13 @@ def create_gradio_interface():
                         outputs=system_message_input
                     )
 
-                gr.Markdown(
-                    """
-                    ### Processed Output
-                    The processed text and responses will be displayed here.
-                    """
-                )
-                output_display = gr.Textbox(
-                    interactive=False,
-                    show_label=False,
-                    label="Output"
-                )
-
-        with gr.Row():
-            with gr.Column(scale=2):
-                chat_input = gr.MultimodalTextbox(
-                    interactive=True,
-                    file_count="multiple",
-                    placeholder="Enter the transcript text or upload it as a file.",
-                    show_label=False
-                )
-
-                gr.Markdown(
-                    """
-                    # Cleaned transcript
-                    Your cleaned and reformatted transcript will be available below.
-                    """
-                )
-                cleaned_transcript_display = gr.Textbox(
-                    interactive=False,
-                    show_label=False,
-                    label="Cleaned Transcript",
-                    show_copy_button=True  # Add copy to clipboard button
-                )
-
-                chat_input.submit(transcript_cleaning_process_info, inputs=[chat_input, model_choice, max_tokens, temperature, system_message_input], outputs=[output_display, cleaned_transcript_display])
+        # Place chat_input.submit here, after model_choice and other elements are defined
+        chat_input.submit(transcript_cleaning_process_info, inputs=[chat_input, model_choice, max_tokens, temperature, system_message_input], outputs=[output_display, cleaned_transcript_display])
 
     return demo
 
-demo = create_gradio_interface()
-
+# Ensure 'demo' is defined before it is used
 if __name__ == "__main__":
+    demo = create_gradio_interface()  # Assign the returned value to 'demo'
     demo.queue()
     demo.launch()
