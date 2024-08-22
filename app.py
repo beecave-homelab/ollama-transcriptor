@@ -10,20 +10,21 @@ from rich.logging import RichHandler
 # Load environment variables
 load_dotenv()
 
-# Enhanced configuration
 API_KEY = os.getenv("OPENAI_API_KEY")
 BASE_URL = os.getenv("OPENAI_BASE_URL")
-DEFAULT_MODEL = os.getenv("DEFAULT_OPENAI_MODEL")
-SYSTEM_MESSAGE_1 = os.getenv("SYSTEM_MESSAGE_1")
-SYSTEM_MESSAGE_2 = os.getenv("SYSTEM_MESSAGE_2")
-SYSTEM_MESSAGE_3 = os.getenv("SYSTEM_MESSAGE_3")
-MAX_TOKENS = int(os.getenv("MAX_TOKENS"))
-TEMPERATURE = float(os.getenv("TEMPERATURE"))
-CLEANED_TRANSCRIPTS_FOLDER = os.getenv("CLEANED_TRANSCRIPTS_FOLDER", "cleaned-transcripts")
 
+DEFAULT_MODEL = os.getenv("DEFAULT_OPENAI_MODEL")
 MODEL_1 = os.getenv("OPENAI_MODEL_1")
 MODEL_2 = os.getenv("OPENAI_MODEL_2")
 MODEL_3 = os.getenv("OPENAI_MODEL_3")
+
+SYSTEM_MESSAGE_1 = os.getenv("SYSTEM_MESSAGE_1")
+SYSTEM_MESSAGE_2 = os.getenv("SYSTEM_MESSAGE_2")
+SYSTEM_MESSAGE_3 = os.getenv("SYSTEM_MESSAGE_3")
+
+MAX_TOKENS = int(os.getenv("MAX_TOKENS"))
+TEMPERATURE = float(os.getenv("TEMPERATURE"))
+CLEANED_TRANSCRIPTS_FOLDER = os.getenv("CLEANED_TRANSCRIPTS_FOLDER", "cleaned-transcripts")
 
 # Logging setup
 logging.basicConfig(level="DEBUG", handlers=[RichHandler()])
@@ -148,19 +149,67 @@ def create_gradio_interface():
             """
             # Transcript Processor
             Upload your transcript files for processing or enter text.
-            """,
-            elem_id="centered-markdown"
+            """
         )
+
+        with gr.Row():
+            with gr.Column(scale=2):
+                gr.Markdown(
+                    """
+                    ### Text to transcribe
+                    """
+                )
+
+                chat_input = gr.MultimodalTextbox(
+                    interactive=True,
+                    file_count="multiple",
+                    placeholder="Enter the transcript text or upload it as a file.",
+                    show_label=False
+                )
+
+                gr.Markdown(
+                    """
+                    ### Cleaned transcript
+                    Your cleaned and reformatted transcript will be available below.
+                    """
+                )
+
+                cleaned_transcript_display = gr.Textbox(
+                    interactive=False,
+                    show_label=True,
+                    label="Cleaned transcript",
+                    show_copy_button=True
+                )
+
         with gr.Row():
             with gr.Column(scale=1):
-                with gr.Accordion("Model Configuration", open=True):
+                gr.Markdown(
+                    """
+                    ### Processed Output
+                    The processed text and responses will be displayed here.
+                    """
+                )
+                output_display = gr.Textbox(
+                    interactive=False,
+                    show_label=False,
+                    label="Output"
+                )
+
+                gr.Markdown(
+                    """
+                    ### Model configuration
+                    Select the model, set the context length, temperature and which system message to use.
+                    """
+                )
+                
+                with gr.Accordion("Model Configuration", open=False):
                     model_choice = gr.Dropdown(
                         choices=[DEFAULT_MODEL, MODEL_1, MODEL_2, MODEL_3],
                         value=DEFAULT_MODEL,
                         label="Model"
                     )
                     temperature = gr.Slider(minimum=0, maximum=1, value=float(TEMPERATURE), label="Temperature")
-                    max_tokens = gr.Slider(minimum=1, maximum=4096, step=1, value=int(MAX_TOKENS), label="Max Tokens")
+                    max_tokens = gr.Slider(minimum=1, maximum=8192, step=1, value=int(MAX_TOKENS), label="Max Tokens")
 
                     system_message_files = {
                         os.path.basename(SYSTEM_MESSAGE_1): SYSTEM_MESSAGE_1,
@@ -191,46 +240,13 @@ def create_gradio_interface():
                         outputs=system_message_input
                     )
 
-                gr.Markdown(
-                    """
-                    ### Processed Output
-                    The processed text and responses will be displayed here.
-                    """
-                )
-                output_display = gr.Textbox(
-                    interactive=False,
-                    show_label=False,
-                    label="Output"
-                )
-
-        with gr.Row():
-            with gr.Column(scale=2):
-                chat_input = gr.MultimodalTextbox(
-                    interactive=True,
-                    file_count="multiple",
-                    placeholder="Enter the transcript text or upload it as a file.",
-                    show_label=False
-                )
-
-                gr.Markdown(
-                    """
-                    # Cleaned transcript
-                    Your cleaned and reformatted transcript will be available below.
-                    """
-                )
-                cleaned_transcript_display = gr.Textbox(
-                    interactive=False,
-                    show_label=False,
-                    label="Cleaned Transcript",
-                    show_copy_button=True  # Add copy to clipboard button
-                )
-
-                chat_input.submit(transcript_cleaning_process_info, inputs=[chat_input, model_choice, max_tokens, temperature, system_message_input], outputs=[output_display, cleaned_transcript_display])
+        # Place chat_input.submit here, after model_choice and other elements are defined
+        chat_input.submit(transcript_cleaning_process_info, inputs=[chat_input, model_choice, max_tokens, temperature, system_message_input], outputs=[output_display, cleaned_transcript_display])
 
     return demo
 
-demo = create_gradio_interface()
-
+# Ensure 'demo' is defined before it is used
 if __name__ == "__main__":
+    demo = create_gradio_interface()  # Assign the returned value to 'demo'
     demo.queue()
     demo.launch()
