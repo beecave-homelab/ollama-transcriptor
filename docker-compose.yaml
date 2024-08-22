@@ -12,3 +12,5 @@ services:
       - ./cleaned-transcripts:/app/cleaned-transcripts
     env_file:
       - .env
+    extra_hosts:
+      - host.docker.internal:host-gateway
