@@ -1,3 +1,6 @@
+##################################################
+################## PYTHON BASE ###################
+##################################################
 # Stage 1: Base image with Python and dependencies
 FROM python:3.12-slim AS base
 
@@ -20,7 +23,9 @@ USER appuser
 # Set the working directory for the application
 WORKDIR /home/appuser
 
-# Stage 2: Install Python dependencies
+#################################################
+################## PYTHON DEP ###################
+#################################################
 FROM base AS python-dependencies
 
 # Copy the requirements file and install dependencies
