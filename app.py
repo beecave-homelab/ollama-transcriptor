@@ -51,7 +51,7 @@ for system_message_file in [SYSTEM_MESSAGE_1, SYSTEM_MESSAGE_2, SYSTEM_MESSAGE_3
         with open(system_message_file, 'w') as file:
             file.write("")
 
-def nest_sentences(document, max_length=1024):
+def nest_sentences(document, max_length=MAX_TOKENS):
     """
     Break down a document into manageable chunks of sentences where each chunk is under max_length characters.
     
@@ -99,10 +99,8 @@ def predict(segment, history, model, max_tokens, temperature, system_message):
             full_message += chunk.choices[0].delta.content
             yield full_message
 
-def transcript_cleaning_process_info(message, model, max_tokens, temperature, system_message):
+def transcript_cleaning_process_info(text, files, model, max_tokens, temperature, system_message):
     history = []
-    files = message["files"]
-    text = message["text"]
     output_display_content = "Transcript text cleaning has started.\n\n"
     cleaned_content = ""
 
@@ -111,7 +109,7 @@ def transcript_cleaning_process_info(message, model, max_tokens, temperature, sy
 
     # Handle file inputs
     if files is not None and len(files) > 0:
-        file_path = files[0]
+        file_path = files[0].name if isinstance(files[0], gr.File) else files[0]
         if check_file_type(file_path):
             file_type = os.path.splitext(file_path)[1]
             file_content = read_file_content(file_path)
@@ -132,7 +130,7 @@ def transcript_cleaning_process_info(message, model, max_tokens, temperature, sy
 
     # Process the combined content if there's any
     if combined_content.strip():
-        segments = nest_sentences(combined_content, max_length=1024)
+        segments = nest_sentences(combined_content, max_length=MAX_TOKENS)
         num_segments = len(segments)
         output_display_content += f"The transcript will be sent in {num_segments} segments.\n"
 
@@ -194,11 +192,17 @@ def create_gradio_interface():
                     """
                 )
 
-                chat_input = gr.MultimodalTextbox(
+                # Use Textbox for text input
+                text_input = gr.Textbox(
                     interactive=True,
-                    file_count="multiple",
-                    placeholder="Enter the transcript text or upload it as a file.",
+                    placeholder="Enter the transcript text.",
                     show_label=False
+                )
+
+                # Use File component for file uploads
+                file_input = gr.File(
+                    file_count="multiple",
+                    label="Upload transcript files"
                 )
 
                 gr.Markdown(
@@ -224,7 +228,7 @@ def create_gradio_interface():
                     """
                 )
                 output_display = gr.Textbox(
-                                       interactive=False,
+                    interactive=False,
                     show_label=False,
                     label="Output"
                 )
@@ -274,12 +278,18 @@ def create_gradio_interface():
                         outputs=system_message_input
                     )
 
-        # Place chat_input.submit here, after model_choice and other elements are defined
-        chat_input.submit(transcript_cleaning_process_info, inputs=[chat_input, model_choice, max_tokens, temperature, system_message_input], outputs=[output_display, cleaned_transcript_display])
+        # Create a button to trigger the transcript processing
+        submit_button = gr.Button("Process Transcript")
+
+        # Handle the submission using the button click
+        submit_button.click(
+            fn=transcript_cleaning_process_info,
+            inputs=[text_input, file_input, model_choice, max_tokens, temperature, system_message_input],
+            outputs=[output_display, cleaned_transcript_display]
+        )
 
     return demo
 
-# Ensure 'demo' is defined before it is used
 if __name__ == "__main__":
     demo = create_gradio_interface()  # Assign the returned value to 'demo'
     demo.queue()
