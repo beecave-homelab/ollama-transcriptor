@@ -1,5 +1,5 @@
 # Stage 1: Base image with Python and dependencies
-FROM python:3.11-slim-bullseye AS base
+FROM python:3.12-slim-bullseye AS python-base
 
 # Install system dependencies as root
 USER root
@@ -37,8 +37,7 @@ RUN python -m venv venv && \
 ENV PATH="$PATH:/home/appuser/.local/bin"
 
 # Clone and build spaCy from source within the same environment
-RUN git clone https://github.com/explosion/spaCy /home/appuser/spaCy
-WORKDIR /home/appuser/spaCy
+RUN git clone https://github.com/explosion/spaCy
 RUN cd spaCy && pip install -r requirements.txt && \
     pip install --no-build-isolation . && cd ..
 
@@ -47,10 +46,10 @@ RUN pip install -U pip setuptools wheel && \
     pip install --no-cache-dir -r requirements.txt
 
 # Clone and build spaCy from source within the same environment
-RUN git clone https://github.com/explosion/spaCy /home/appuser/spaCy
-WORKDIR /home/appuser/spaCy
+RUN git clone https://github.com/explosion/spaCy
 RUN cd spaCy && pip install -r requirements.txt && \
-    pip install --no-build-isolation . && cd ..
+    # pip install --no-build-isolation . && cd ..
+    pip install . && cd ..
 
 # Copy the application code with correct ownership
 WORKDIR /app
