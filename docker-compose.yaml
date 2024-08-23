@@ -2,10 +2,10 @@ services:
   ollama-transcriptor:
     build: .
     container_name: ollama-transcriptor
-    image: ghrc.io/beecave-homelab/ollama-transcriptor:latest
+    image: ghcr.io/beecave-homelab/ollama-transcriptor:dev
     restart: unless-stopped
     ports:
-      - "7861:7860"
+      - "7862:7860"
     volumes:
       - ./system-message:/app/system-message
       - ./transcripts:/app/transcripts
