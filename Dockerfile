@@ -7,7 +7,7 @@ RUN apt-get update -y && apt-get install -y --no-install-recommends \
     sudo git build-essential python-dev-is-python3 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-git 
+ 
 # (Optional) Setup a password-less sudo file for the new user
 # COPY sudo-nopasswd /etc/sudoers.d/sudo-nopasswd
 
