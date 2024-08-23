@@ -51,7 +51,7 @@ for system_message_file in [SYSTEM_MESSAGE_1, SYSTEM_MESSAGE_2, SYSTEM_MESSAGE_3
         with open(system_message_file, 'w') as file:
             file.write("")
 
-def nest_sentences(document, max_length=MAX_TOKENS):
+def nest_sentences(document, max_length=1024):
     """
     Break down a document into manageable chunks of sentences where each chunk is under max_length characters.
     
@@ -130,7 +130,7 @@ def transcript_cleaning_process_info(text, files, model, max_tokens, temperature
 
     # Process the combined content if there's any
     if combined_content.strip():
-        segments = nest_sentences(combined_content, max_length=MAX_TOKENS)
+        segments = nest_sentences(combined_content, max_length=1024)
         num_segments = len(segments)
         output_display_content += f"The transcript will be sent in {num_segments} segments.\n"
 
