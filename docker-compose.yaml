@@ -10,7 +10,9 @@ services:
       - ./system-message:/app/system-message
       - ./transcripts:/app/transcripts
       - ./cleaned-transcripts:/app/cleaned-transcripts
+      - ./src:/app/src
     env_file:
       - .env
     extra_hosts:
       - host.docker.internal:host-gateway
+    command: ["src/app.py"]
