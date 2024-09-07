@@ -35,3 +35,6 @@ transcripts/
 
 # Ignore cleaned transcripts (they are mounted as volumes)
 cleaned-transcripts/
+
+# Ignore src folder (it is mounted as a volume)
+src/
