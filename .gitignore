@@ -3,8 +3,6 @@
 
 # Whitelist specific files and directories
 !*.gitignore
-!*.py
-!*.html
 !*.yml
 !*.yaml
 !*.env.example
