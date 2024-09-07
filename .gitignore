@@ -16,11 +16,12 @@
 !Dockerfile
 !.dockerignore
 
-# Modules to use.
-!/modules/
-!/modules/findMarkdown.py
-!/modules/messageColor.py
-!/modules/transcriptProcessor.py
+# src folder with modules and main script
+!src/
+!src/app.py
+!src/modules/
+!src/modules/messageColor.py
+!src/modules/transcriptProcessor.py
 
 # Files for testing
 !/testing/
