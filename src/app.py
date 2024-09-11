@@ -1,5 +1,6 @@
 import os
-from openai import OpenAI
+import time
+from openai import OpenAI, OpenAIError
 import gradio as gr
 from dotenv import load_dotenv
 import shutil
@@ -13,15 +14,7 @@ load_dotenv()
 
 API_KEY = os.getenv("OPENAI_API_KEY")
 BASE_URL = os.getenv("OPENAI_BASE_URL")
-
-DEFAULT_MODEL = os.getenv("DEFAULT_OPENAI_MODEL")
-MODEL_1 = os.getenv("OPENAI_MODEL_1")
-MODEL_2 = os.getenv("OPENAI_MODEL_2")
-MODEL_3 = os.getenv("OPENAI_MODEL_3")
-
-SYSTEM_MESSAGE_1 = os.getenv("SYSTEM_MESSAGE_1")
-SYSTEM_MESSAGE_2 = os.getenv("SYSTEM_MESSAGE_2")
-SYSTEM_MESSAGE_3 = os.getenv("SYSTEM_MESSAGE_3")
+SYSTEM_MESSAGE_DIR = os.getenv("SYSTEM_MESSAGE_DIR")
 
 MAX_TOKENS = int(os.getenv("MAX_TOKENS"))
 TEMPERATURE = float(os.getenv("TEMPERATURE"))
@@ -44,21 +37,46 @@ if not os.path.exists(UPLOAD_FOLDER):
 if not os.path.exists(CLEANED_TRANSCRIPTS_FOLDER):
     os.makedirs(CLEANED_TRANSCRIPTS_FOLDER)
 
-# Ensure system message files exist
-for system_message_file in [SYSTEM_MESSAGE_1, SYSTEM_MESSAGE_2, SYSTEM_MESSAGE_3]:
-    if system_message_file and not os.path.exists(system_message_file):
-        os.makedirs(os.path.dirname(system_message_file), exist_ok=True)
-        with open(system_message_file, 'w') as file:
-            file.write("")
+# Fetch available models from OpenAI API
+def fetch_available_models(max_retries=3, retry_delay=5):
+    for attempt in range(max_retries):
+        try:
+            response = client.models.list()
+            models = [model.id for model in response]
+            logger.info(f"Successfully fetched {len(models)} models")
+            return models
+        except OpenAIError as e:
+            logger.error(f"OpenAI API error on attempt {attempt + 1}: {str(e)}")
+        except Exception as e:
+            logger.error(f"Unexpected error on attempt {attempt + 1}: {str(e)}")
+
+        if attempt < max_retries - 1:
+            logger.info(f"Retrying in {retry_delay} seconds...")
+            time.sleep(retry_delay)
+
+    logger.error("Failed to fetch models after all retry attempts")
+    return []
+
+# Fetch system messages from the specified directory
+def fetch_system_messages(directory):
+    system_messages = {}
+    for root, _, files in os.walk(directory):
+        for file in files:
+            file_path = os.path.join(root, file)
+            with open(file_path, 'r') as f:
+                system_messages[file] = f.read()
+    return system_messages
+
+SYSTEM_MESSAGES = fetch_system_messages(SYSTEM_MESSAGE_DIR)
 
 def nest_sentences(document, max_length=1024):
     """
     Break down a document into manageable chunks of sentences where each chunk is under max_length characters.
-    
+
     Parameters:
     - document (str): The input text document to be processed.
     - max_length (int): The maximum character length for each chunk of sentences.
-    
+
     Returns:
     - list: A list where each element is a group of sentences that together are less than max_length characters.
     """
@@ -66,7 +84,7 @@ def nest_sentences(document, max_length=1024):
     sent = []    # Temporary list to hold sentences for a current chunk
     length = 0   # Counter to keep track of the character length of the current chunk
     doc = nlp(document)  # Process the document using spaCy to tokenize into sentences
-    
+
     for sentence in doc.sents:
         length += len(sentence.text)
         if length < max_length:
@@ -155,13 +173,12 @@ def transcript_cleaning_process_info(text, files, model, max_tokens, temperature
 
     yield output_display_content, cleaned_content  # Yielding final results
 
-def read_system_message(file_path):
-    if os.path.exists(file_path):
-        with open(file_path, 'r') as file:
-            return file.read()
-    return ""
-
 def create_gradio_interface():
+    def fetch_models():
+        models = fetch_available_models()
+        logger.debug(f"Fetched models: {models}")
+        return gr.update(choices=models, value=models[0] if models else None)
+
     theme = gr.themes.Base(
         primary_hue="green",
         secondary_hue="stone",
@@ -239,29 +256,26 @@ def create_gradio_interface():
                     Select the model, set the context length, temperature and which system message to use.
                     """
                 )
-                
+
                 with gr.Accordion("Model Configuration", open=False):
                     model_choice = gr.Dropdown(
-                        choices=[DEFAULT_MODEL, MODEL_1, MODEL_2, MODEL_3],
-                        value=DEFAULT_MODEL,
+                        choices=[],  # Start with an empty list
                         label="Model"
                     )
+                    refresh_models_btn = gr.Button("Refresh Models")
+                    refresh_models_btn.click(fetch_models, outputs=model_choice)
+
                     temperature = gr.Slider(minimum=0, maximum=1, value=float(TEMPERATURE), label="Temperature")
                     max_tokens = gr.Slider(minimum=1, maximum=8192, step=1, value=int(MAX_TOKENS), label="Max Tokens")
 
-                    system_message_files = {
-                        os.path.basename(SYSTEM_MESSAGE_1): SYSTEM_MESSAGE_1,
-                        os.path.basename(SYSTEM_MESSAGE_2): SYSTEM_MESSAGE_2,
-                        os.path.basename(SYSTEM_MESSAGE_3): SYSTEM_MESSAGE_3
-                    }
                     system_message_dropdown = gr.Dropdown(
-                        choices=list(system_message_files.keys()),
+                        choices=list(SYSTEM_MESSAGES.keys()),
                         label="Select System Message",
-                        value=list(system_message_files.keys())[0]
+                        value=list(SYSTEM_MESSAGES.keys())[0]
                     )
 
                     system_message_input = gr.Textbox(
-                        value=read_system_message(system_message_files[list(system_message_files.keys())[0]]),
+                        value=SYSTEM_MESSAGES[list(SYSTEM_MESSAGES.keys())[0]],
                         label="System Message",
                         placeholder="System message content...",
                         lines=10,
@@ -269,8 +283,7 @@ def create_gradio_interface():
                     )
 
                     def update_system_message(file_key):
-                        file_path = system_message_files[file_key]
-                        return read_system_message(file_path)
+                        return SYSTEM_MESSAGES[file_key]
 
                     system_message_dropdown.change(
                         update_system_message,
@@ -288,9 +301,12 @@ def create_gradio_interface():
             outputs=[output_display, cleaned_transcript_display]
         )
 
+        # Fetch models when the interface is created
+        demo.load(fetch_models, outputs=model_choice)
+
     return demo
 
 if __name__ == "__main__":
-    demo = create_gradio_interface()  # Assign the returned value to 'demo'
+    demo = create_gradio_interface()
     demo.queue()
     demo.launch()
