@@ -1,3 +1,5 @@
+LABEL org.opencontainers.image.source=https://github.com/beecave-homelab/ollama-transcriptor
+
 ##################################################
 ################## PYTHON BASE ###################
 ##################################################
