@@ -127,7 +127,7 @@ def predict(segment, history, model, max_tokens, temperature, system_message):
             full_message += chunk.choices[0].delta.content
             yield full_message
 
-def transcript_cleaning_process_info(text, files, model, max_tokens, temperature, system_message):
+def transcript_cleaning_process_info(input_data, model, max_tokens, temperature, system_message):
     history = []
     output_display_content = "Transcript text cleaning has started.\n\n"
     cleaned_content = ""
@@ -135,25 +135,31 @@ def transcript_cleaning_process_info(text, files, model, max_tokens, temperature
     combined_content = ""
     cleaned_file_name = "cleaned_transcript.txt"
 
-    # Handle file inputs
-    if files is not None and len(files) > 0:
-        file_path = files[0].name if isinstance(files[0], gr.File) else files[0]
-        if check_file_type(file_path):
-            file_type = os.path.splitext(file_path)[1]
-            file_content = read_file_content(file_path)
-            file_name = os.path.basename(file_path)
-            cleaned_file_name = file_name  # Save cleaned transcript with the same name
-            combined_content += file_content + "\n"
-            output_display_content += f"Uploaded a {file_type} file.\n"
-            output_display_content += f"{file_name} was uploaded for text cleaning.\n"
-            word_count = len(file_content.split())
-            output_display_content += f"The transcript of {file_name} contains {word_count} words.\n"
-        else:
-            output_display_content = f"Unsupported file type: {file_path}\n"
-            yield output_display_content, ""
-    elif text is not None and text.strip():
-        combined_content += text
-        word_count = len(text.split())
+    # Handle file inputs or text input
+    if isinstance(input_data, dict):
+        if input_data.get("files"):
+            for file_path in input_data["files"]:
+                if check_file_type(file_path):
+                    file_type = os.path.splitext(file_path)[1]
+                    file_content = read_file_content(file_path)
+                    file_name = os.path.basename(file_path)
+                    cleaned_file_name = file_name  # Save cleaned transcript with the same name
+                    combined_content += file_content + "\n"
+                    output_display_content += f"Uploaded a {file_type} file.\n"
+                    output_display_content += f"{file_name} was uploaded for text cleaning.\n"
+                    word_count = len(file_content.split())
+                    output_display_content += f"The transcript of {file_name} contains {word_count} words.\n"
+                else:
+                    output_display_content += f"Unsupported file type: {file_path}\n"
+        
+        if input_data.get("text"):
+            combined_content += input_data["text"]
+            word_count = len(input_data["text"].split())
+            output_display_content += f"The transcript contains {word_count} words.\n"
+    else:
+        # If input_data is not a dict, assume it's text
+        combined_content += input_data
+        word_count = len(input_data.split())
         output_display_content += f"The transcript contains {word_count} words.\n"
 
     # Process the combined content if there's any
@@ -206,7 +212,7 @@ def create_gradio_interface():
     with gr.Blocks(theme=theme) as demo:
         gr.Markdown(
             """
-            # Transcript Processor
+            # Ollama Transcriptor | Cleans, formats or summarizes transcripts
             Upload your transcript files for processing or enter text.
             """
         )
@@ -219,24 +225,14 @@ def create_gradio_interface():
                     """
                 )
 
-                # Use Textbox for text input
-                text_input = gr.Textbox(
-                    interactive=True,
-                    placeholder="Enter the transcript text.",
-                    show_label=False
-                )
-
-                # Use File component for file uploads
-                file_input = gr.File(
-                    file_count="multiple",
-                    label="Upload transcript files"
-                )
-
-                gr.Markdown(
-                    """
-                    ### Cleaned transcript
-                    Your cleaned and reformatted transcript will be available below.
-                    """
+                # Use MultimodalTextbox for both text input and file uploads
+                input_data = gr.MultimodalTextbox(
+                    placeholder="Enter the transcript text or upload a file.",
+                    show_label=False,
+                    max_lines=20,
+                    autofocus=True,
+                    file_types=[".txt", ".md"],
+                    file_count="multiple"
                 )
 
                 cleaned_transcript_display = gr.Textbox(
@@ -248,12 +244,6 @@ def create_gradio_interface():
 
         with gr.Row():
             with gr.Column(scale=1):
-                gr.Markdown(
-                    """
-                    ### Processed Output
-                    The processed text and responses will be displayed here.
-                    """
-                )
                 output_display = gr.Textbox(
                     interactive=False,
                     show_label=False,
@@ -301,13 +291,10 @@ def create_gradio_interface():
                         outputs=system_message_input
                     )
 
-        # Create a button to trigger the transcript processing
-        submit_button = gr.Button("Process Transcript")
-
-        # Handle the submission using the button click
-        submit_button.click(
+        # Connect the MultimodalTextbox directly to the processing function
+        input_data.submit(
             fn=transcript_cleaning_process_info,
-            inputs=[text_input, file_input, model_choice, max_tokens, temperature, system_message_input],
+            inputs=[input_data, model_choice, max_tokens, temperature, system_message_input],
             outputs=[output_display, cleaned_transcript_display]
         )
 
