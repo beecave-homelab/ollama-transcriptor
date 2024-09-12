@@ -62,14 +62,24 @@ def fetch_system_messages(directory):
     system_messages = {}
     for root, _, files in os.walk(directory):
         for file in files:
+            if not file.endswith('.md'):
+                logger.warning(f"Skipping non-markdown file: {file}")
+                continue
             file_path = os.path.join(root, file)
-            with open(file_path, 'r') as f:
-                system_messages[file] = f.read()
+            for encoding in ['utf-8', 'iso-8859-1', 'windows-1252']:
+                try:
+                    with open(file_path, 'r', encoding=encoding) as f:
+                        system_messages[file] = f.read()
+                    break  # If successful, break the encoding loop
+                except UnicodeDecodeError:
+                    continue  # Try the next encoding
+            else:
+                logger.warning(f"Could not decode file {file_path} with any of the attempted encodings")
     return system_messages
 
 SYSTEM_MESSAGES = fetch_system_messages(SYSTEM_MESSAGE_DIR)
 
-def nest_sentences(document, max_length=1024):
+def nest_sentences(document, max_length=2048):
     """
     Break down a document into manageable chunks of sentences where each chunk is under max_length characters.
 
