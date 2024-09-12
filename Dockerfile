@@ -1,10 +1,10 @@
-LABEL org.opencontainers.image.source=https://github.com/beecave-homelab/ollama-transcriptor
-
 ##################################################
 ################## PYTHON BASE ###################
 ##################################################
 # Stage 1: Base image with Python and dependencies
 FROM ubuntu:22.04 AS base
+
+LABEL org.opencontainers.image.source=https://github.com/beecave-homelab/ollama-transcriptor
 
 # Install system dependencies as root
 USER root
