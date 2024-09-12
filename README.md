@@ -18,28 +18,28 @@ The application can handle large text inputs by automatically cutting them into 
 ## Project overview
 ```md
 ollama-transcriptor/
-├── cleaned-transcripts
+├── cleaned-transcripts/
 ├── docker-compose.yaml
 ├── Dockerfile
 ├── LICENSE
 ├── modules
 ├── README.md
 ├── requirements.txt
-├── src
+├── src/
 │  ├── app.py
-│  └── modules
+│  └── modules/
 │     ├── messageColor.py
 │     └── transcriptProcessor.py
-├── system-message
-│  ├── clean_text
+├── system-message/
+│  ├── clean_text/
 │  │  └── clean_text.md
-│  ├── clean_text_v2
+│  ├── clean_text_v2/
 │  │  └── clean_text_v2.md
-│  ├── clean_transcript
+│  ├── clean_transcript/
 │  │  └── clean_transcript.md
-│  └── clean_transcript_v2
+│  └── clean_transcript_v2/
 │     └── clean_transcript_v2.md
-├── testing
+├── testing/
 │  └── diagnostics.py
 ```
 
